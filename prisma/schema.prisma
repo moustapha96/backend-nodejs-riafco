@@ -1,0 +1,517 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PermissionName {
+  GERER_ACTIVITES
+  GERER_RESSOURCES
+  GERER_UTILISATEURS
+  GERER_BUREAUX
+  GERER_ACTUALITES
+  GERER_PARTENARIATS
+  GERER_EVENEMENTS
+  GERER_NEWSLETTERS
+  GERER_ESPACE_APROPOS
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+  users       User[]
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  password         String
+  firstName        String
+  lastName         String
+  phone            String?
+  profilePic       String?
+  role             Role      @default(MEMBER)
+  status           Status    @default(ACTIVE)
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  lastLogin        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  permissions     Permission[]
+  // Relations
+  activities      Activity[]
+  events          Event[]
+  news            News[]
+  resources       Resource[]
+  auditLogs       AuditLog[]
+  themes          Theme[]      @relation("UserThemes")
+  invitationsSent Invitation[] @relation("InvitationsSent")
+
+  Comment    Comment[]
+  Discussion Discussion[] @relation("UserDiscussions")
+
+  GovernanceReport GovernanceReport[]
+
+  @@map("users")
+}
+
+model GovernanceReport {
+  id          String   @id @default(cuid())
+  title_fr      String?
+  title_en      String?
+  paragraphe_fr String?
+  paragraphe_en String?
+  fileUrl       String // URL du fichier PDF
+  publishedAt   DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdById   String?
+  createdBy     User?     @relation(fields: [createdById], references: [id])
+  
+  @@map("governance_reports")
+}
+
+model AboutUs {
+  id            String   @id @default(cuid())
+  title_fr      String   @default("Qui sommes-nous ?")
+  title_en      String   @default("About Us")  
+  paragraphe_fr String?
+  paragraphe_en String?
+  image         String?  // URL de l'image (ex: logo, photo d'équipe)
+  isPublished   Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("about_us")
+}
+
+
+
+model Invitation {
+  id          String           @id @default(uuid())
+  fullName    String
+  email       String
+  phone       String?
+  profilePic  String?
+  status      InvitationStatus @default(PENDING)
+  token       String?          @unique // Pour les liens d'acceptation
+  expiresAt   DateTime? // Date d'expiration de l'invitation
+  invitedById String
+  invitedBy   User             @relation("InvitationsSent", fields: [invitedById], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("invitations")
+}
+
+model Theme {
+  id          String       @id @default(uuid())
+  title       String
+  slug        String       @unique
+  isPublic    Boolean      @default(true) // Visibilité publique/privée
+  description String?
+  createdById String
+  createdBy   User         @relation("UserThemes", fields: [createdById], references: [id])
+  discussions Discussion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("themes")
+}
+
+model Discussion {
+  id          String   @id @default(uuid())
+  content     String
+  themeId     String
+  theme       Theme    @relation(fields: [themeId], references: [id])
+  createdById String
+  createdBy   User     @relation("UserDiscussions", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+ comments    Comment[]
+
+  @@map("discussions")
+}
+
+model Comment {
+  id           String     @id @default(uuid())
+  content      String
+
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id])
+
+  createdById  String
+  createdBy    User       @relation(fields: [createdById], references: [id])
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("comments")
+}
+
+model Activity {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  icon        String?
+  image       String?
+  status      PublishStatus @default(DRAFT)
+  authorId    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  author      User          @relation(fields: [authorId], references: [id])
+
+  @@map("activities")
+}
+
+model Event {
+  id               String        @id @default(cuid())
+  title            String
+  description      String
+  startDate        DateTime
+  endDate          DateTime?
+  location         String?
+  image            String?
+  maxAttendees     Int?
+  isVirtual        Boolean       @default(false)
+  status           PublishStatus @default(DRAFT)
+  registrationLink String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+ 
+  authorId         String
+  author           User          @relation(fields: [authorId], references: [id])
+
+  @@map("events")
+}
+
+model News {
+  id          String        @id @default(cuid())
+  title       String
+  content     String
+  image       String?
+  status      PublishStatus @default(DRAFT)
+  publishedAt DateTime?
+  authorId    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@map("news")
+}
+
+model NewsletterSubscriber {
+  id        String             @id @default(cuid())
+  email     String             @unique
+  status    SubscriptionStatus @default(ACTIVE)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@map("newsletter_subscribers")
+}
+
+model Resource {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  fileName    String
+  filePath    String
+  fileType    String
+  fileSize    Int?
+  categoryId  String?
+  tags        String[]
+  authorId    String
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author   User              @relation(fields: [authorId], references: [id])
+  category ResourceCategory? @relation(fields: [categoryId], references: [id])
+
+  @@map("resources")
+}
+
+model Partner {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  logo        String?
+  country     String
+  address     String?
+  email       String?
+  phone       String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("partners")
+}
+
+model HistoryItem {
+  id          String          @id @default(cuid())
+  date        DateTime        @default(now())
+  title       String
+  description String
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("history_items")
+}
+
+model MemberCountry {
+  id        String                 @id @default(cuid())
+  name      String                 @unique
+  code      String                 @unique
+  flag      String?
+  latitude  Float?
+  longitude Float?
+  status    Status                 @default(ACTIVE)
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  criteria  CritereMemberCountry[]
+
+  @@map("member_countries")
+}
+
+model CritereMemberCountry {
+  id            String          @id @default(cuid())
+  name          String         
+  description   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  memberCountry MemberCountry @relation(fields: [memberCountryId], references: [id])
+  memberCountryId String
+
+  @@map("critere_member_countries")
+}
+
+model SiteSettings {
+  id           String   @id @default(cuid())
+  siteName     String   @default("RIAFCO")
+  logo         String?
+  favicon      String?
+  contactEmail String?
+  socialMedia  Json?
+  footer       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model ResourceCategory {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  resources   Resource[]
+
+  @@map("resource_categories")
+}
+
+model NewsletterCampaign {
+  id             String         @id @default(cuid())
+  subject        String
+  content        String
+  htmlContent    String?
+  status         CampaignStatus @default(DRAFT)
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  recipientCount Int            @default(0)
+  openCount      Int            @default(0)
+  clickCount     Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("newsletter_campaigns")
+}
+
+model Contact {
+  id          String        @id @default(cuid())
+  name        String
+  email       String
+  subject     String
+  message     String
+  status      ContactStatus @default(PENDING)
+  response    String?
+  respondedAt DateTime?
+  respondedBy String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("contacts")
+}
+
+model SocialNetwork {
+  id        String         @id @default(cuid())
+  name      String
+  platform  SocialPlatform
+  url       String
+  icon      String?
+  isActive  Boolean        @default(true)
+  order     Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("social_networks")
+}
+
+model SocialFeed {
+  id          String         @id @default(cuid())
+  platform    SocialPlatform
+  postId      String // ID du post sur le réseau social
+  content     String
+  postUrl     String
+  author      String
+  publishedAt DateTime
+  createdAt   DateTime       @default(now())
+
+  @@map("social_feeds")
+}
+
+model LegalMention {
+  id            String    @id @default(cuid())
+  type          LegalType
+  title         String
+  content       String
+  language      String    @default("fr")
+  isActive      Boolean   @default(true)
+  version       String    @default("1.0")
+  effectiveDate DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("legal_mentions")
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  position  String
+  bio       String?
+  photo     String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("team_members")
+}
+
+
+enum Sector {
+  AGRICULTURE
+  EDUCATION
+  HEALTH
+  TECHNOLOGY
+  FINANCE
+  OTHER
+  COMPTABILITE
+}
+
+enum Role {
+  ADMIN
+  MODERATOR
+  MEMBER
+  GUEST
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum PublishStatus {
+  PUBLISHED
+  DRAFT
+  ARCHIVED
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  UNSUBSCRIBED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  CANCELLED
+}
+
+enum ContactStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+  INSTAGRAM
+  YOUTUBE
+  WHATSAPP
+  TELEGRAM
+  OTHER
+}
+
+enum LegalType {
+  TERMS_OF_SERVICE
+  PRIVACY_POLICY
+  COOKIE_POLICY
+  DISCLAIMER
+  COPYRIGHT
+  LEGAL_NOTICE
+  OTHER
+}
+
+enum EventCategory {
+  MEETING
+  CONFERENCE
+  WORKSHOP
+  TRAINING
+  SOCIAL
+  OTHER
+}
