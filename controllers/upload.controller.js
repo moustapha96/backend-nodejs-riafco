@@ -14,7 +14,7 @@ module.exports.uploadProfil = async (req, res) => {
     }
 
     const fileName = `${userId}.jpg`
-    const uploadDir = "./uploads/profils/"
+    const uploadDir = "/uploads/profils/"
     const filePath = path.join(uploadDir, fileName)
 
     // Create directory if it doesn't exist
@@ -33,7 +33,7 @@ module.exports.uploadProfil = async (req, res) => {
     res.status(200).json({
       message: "Photo de profil uploadée avec succès",
       fileName,
-      path: `/uploads/profils/${fileName}`,
+      path: `/profils/${fileName}`,
     })
   } catch (error) {
     console.error("Upload profile error:", error)
@@ -49,7 +49,7 @@ module.exports.uploadResource = async (req, res) => {
 
     const { title, description, category, tags } = req.body
     const fileName = `${Date.now()}-${req.file.originalname}`
-    const uploadDir = "./uploads/resources/"
+    const uploadDir = "/uploads/resources/"
     const filePath = path.join(uploadDir, fileName)
 
     // Create directory if it doesn't exist
@@ -63,7 +63,7 @@ module.exports.uploadResource = async (req, res) => {
     res.status(200).json({
       message: "Ressource uploadée avec succès",
       fileName,
-      path: `/uploads/resources/${fileName}`,
+      path: `/resources/${fileName}`,
       fileType: req.file.mimetype,
       size: req.file.size,
     })

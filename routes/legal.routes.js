@@ -38,7 +38,6 @@ const updateLegalValidation = [
  *   description: Legal mentions management
  */
 
-// Validation rules omitted for Swagger
 
 /**
  * @swagger
@@ -111,7 +110,11 @@ router.get("/:id", legalController.getLegalMention);
  *       201:
  *         description: Legal mention created
  */
-router.post("/", requireAuth, requireRole(["ADMIN"]), createLegalValidation, legalController.createLegalMention);
+router.post("/",
+  requireAuth,
+  requireRole(["ADMIN"]),
+  createLegalValidation,
+  legalController.createLegalMention);
 
 /**
  * @swagger

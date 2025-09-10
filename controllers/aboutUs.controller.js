@@ -26,6 +26,50 @@ module.exports.getAboutUs = async (req, res) => {
   }
 };
 
+module.exports.getAboutUsAll = async (req, res) => {
+  try {
+
+    const { page = 1, limit = 10, search } = req.query
+    const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit)
+
+    const where = {}
+  
+    if (search) {
+      where.OR = [
+        { titre_fr: { contains: search, mode: "insensitive" } },
+        { titre_en: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
+     const [aboutUs, total] = await Promise.all([
+      prisma.aboutUs.findMany({
+        where,
+        skip,
+        take: Number.parseInt(limit),
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.aboutUs.count({ where }),
+     ])
+     res.json({
+      success: true,
+      data: aboutUs,
+      pagination: {
+        page: Number.parseInt(page),
+        limit: Number.parseInt(limit),
+        total,
+        pages: Math.ceil(total / Number.parseInt(limit)),
+      },
+    })
+  } catch (error) {
+    console.error("Get About Us error:", error);
+    res.status(500).json({
+      message: "Failed to retrieve About Us content",
+      code: "GET_ABOUT_US_ERROR",
+    });
+  }
+};
+
+
 module.exports.createAboutUs = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -41,12 +85,7 @@ module.exports.createAboutUs = async (req, res) => {
     // Gestion de l'image
     let imagePath = null;
     if (req.file) {
-      const uploadDir = "uploads/about-us";
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      imagePath = `/uploads/about-us/${Date.now()}-${req.file.originalname}`;
-      fs.renameSync(req.file.path, path.join(uploadDir, path.basename(imagePath)));
+      imagePath = `/about-us/${req.file.filename}`;
     }
 
     const aboutUs = await prisma.aboutUs.create({
@@ -104,16 +143,11 @@ module.exports.updateAboutUs = async (req, res) => {
       isPublished: isPublished !== undefined ? Boolean(isPublished) : undefined,
     };
 
-    // Gestion de l'image
     if (req.file) {
-      const uploadDir = "uploads/about-us";
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      updateData.image = `/uploads/about-us/${Date.now()}-${req.file.originalname}`;
-      fs.renameSync(req.file.path, path.join(uploadDir, path.basename(updateData.image)));
+      updateData.image = `/about-us/${req.file.filename}`;
     }
 
+    
     // Supprimer les champs non définis
     Object.keys(updateData).forEach((key) => {
       if (updateData[key] === undefined) {

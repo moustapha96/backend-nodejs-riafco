@@ -46,7 +46,7 @@ module.exports.register = async (req, res) => {
         email: email.toLowerCase(),
         password: hashedPassword,
         role,
-        profilePic: req.file ? `/uploads/profiles/${req.file.filename}` : null,
+        profilePic: req.file ? `/profiles/${req.file.filename}` : null,
       },
       select: {
         id: true,
@@ -101,7 +101,13 @@ module.exports.login = async (req, res) => {
     }
 
     const { email, password } = req.body;
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      include: {
+        permissions: true,
+      }
+    })
+
 
     if (!user) {
       await createAuditLog({
@@ -176,6 +182,7 @@ module.exports.login = async (req, res) => {
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        permissions: user.permissions
       },
       token,
     });
@@ -224,7 +231,13 @@ module.exports.getProfile = async (req, res) => {
         role: true,
         status: true,
         phone: true,
-        permissions: true,
+        permissions: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          }
+        },
         profilePic: true,
         lastLogin: true,
         createdAt: true,
@@ -251,6 +264,7 @@ module.exports.getProfile = async (req, res) => {
 
 module.exports.updateProfile = async (req, res) => {
   try {
+
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -259,16 +273,17 @@ module.exports.updateProfile = async (req, res) => {
       })
     }
 
-    const { firstName, lastName } = req.body
+    const { firstName, lastName, phone } = req.body
     const userId = res.locals.user.id
 
     const updateData = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
+      phone: phone.trim()
     }
 
     if (req.file) {
-      updateData.profilePic = `/uploads/profiles/${req.file.filename}`
+      updateData.profilePic = `/profiles/${req.file.filename}`
     }
 
     const updatedUser = await prisma.user.update({
@@ -279,10 +294,12 @@ module.exports.updateProfile = async (req, res) => {
         firstName: true,
         lastName: true,
         email: true,
+        phone: true,
         role: true,
         status: true,
         profilePic: true,
         updatedAt: true,
+        permissions: true
       },
     })
 
@@ -311,6 +328,7 @@ module.exports.updateProfile = async (req, res) => {
 
 module.exports.changePassword = async (req, res) => {
   try {
+
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -329,7 +347,7 @@ module.exports.changePassword = async (req, res) => {
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
-        message: "Current password is incorrect",
+        message: "Votre mot de passe actuel est incorrect",
         code: "INVALID_CURRENT_PASSWORD",
       })
     }
@@ -382,7 +400,7 @@ module.exports.forgotPassword = async (req, res) => {
     if (!user) {
       // Don't reveal if email exists or not
       return res.status(200).json({
-        message: "If the email exists, a reset link has been sent",
+        message: "Si l'email existe, vous recevrez un email de reinitialisation de mot de passe",
       })
     }
 
@@ -469,7 +487,6 @@ module.exports.resetPassword = async (req, res) => {
         resetTokenExpiry: null,
       },
     })
-
     await createAuditLog({
       userId: user.id,
       action: "PASSWORD_RESET_COMPLETED",
@@ -487,5 +504,96 @@ module.exports.resetPassword = async (req, res) => {
       message: "Failed to reset password",
       code: "RESET_PASSWORD_ERROR",
     })
+  }
+}
+
+
+module.exports.activeAccount = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { registerToken: token },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Lien d’activation invalide ou expiré.",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+     if (!user.registerTokenExpiry || new Date() > user.registerTokenExpiry) {
+      return res.status(400).json({
+        message: "Lien d’activation expiré.",
+        code: "TOKEN_EXPIRED",
+      });
+    }
+
+    // Activer le compte
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        status: "ACTIVE",
+        registerToken: null,
+        registerTokenExpiry: null,
+      },
+    });
+
+    return res.status(200).json({
+      message: "Votre compte a été activé avec succès. Vous pouvez maintenant vous connecter.",
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    });
+  } catch (error) {
+    console.error("Activation error:", error);
+    res.status(500).json({
+      message: "Erreur lors de l’activation du compte.",
+      code: "ACTIVATION_ERROR",
+    });
+  }
+}
+
+module.exports.resendActivationLink = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable." });
+    }
+
+    if (user.status === "ACTIVE") {
+      return res.status(400).json({ message: "Ce compte est déjà activé." });
+    }
+
+    // Régénérer un token si l'ancien est nul ou expiré
+    const newToken = crypto.randomBytes(16).toString("hex");
+    const expiryDate = new Date(Date.now() + 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        registerToken: newToken,
+        registerTokenExpiry: expiryDate,
+      },
+    });
+
+    // Renvoyer l'email d’activation
+    await emailService.sendInvitationEmail(user, "********", newToken);
+
+    res.status(200).json({
+      message: "Un nouveau lien d’activation a été envoyé à votre adresse e-mail.",
+    });
+  } catch (error) {
+    console.error("Resend activation error:", error);
+    res.status(500).json({ message: "Erreur lors du renvoi du lien d’activation." });
   }
 }

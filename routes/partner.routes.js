@@ -85,37 +85,6 @@ const updatePartnerValidation = [
 
 
 
-// // Routes
-// // Get all partners (public)
-// router.get("/", partnerController.getAllPartners)
-
-// // Get partner by ID (public)
-// router.get("/:id", partnerController.getPartner)
-
-// // Create new partner (Admin/Moderator only)
-// router.post(
-//   "/",
-//   requireAuth,
-//   requireRole(["ADMIN", "MODERATOR"]),
-//   upload.single("logo"),
-//   createPartnerValidation,
-//   partnerController.createPartner,
-// )
-
-// // Update partner (Admin/Moderator only)
-// router.put(
-//   "/:id",
-//   requireAuth,
-//   requireRole(["ADMIN", "MODERATOR"]),
-//   upload.single("logo"),
-//   updatePartnerValidation,
-//   partnerController.updatePartner,
-// )
-
-// // Delete partner (Admin/Moderator only)
-// router.delete("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), partnerController.deletePartner)
-
-// module.exports = router
 /**
  * @swagger
  * /api/partners:
@@ -183,7 +152,11 @@ router.get("/:id", partnerController.getPartner);
  *       201:
  *         description: Partner created
  */
-router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single("logo"), partnerController.createPartner);
+router.post("/",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR"]),
+  upload.single("logo"),
+  partnerController.createPartner);
 
 /**
  * @swagger
@@ -228,7 +201,11 @@ router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single
  *       200:
  *         description: Partner updated
  */
-router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single("logo"), partnerController.updatePartner);
+router.put("/:id",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR"]),
+  upload.single("logo"),
+  partnerController.updatePartner);
 
 /**
  * @swagger
@@ -249,6 +226,6 @@ router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.sing
  *       200:
  *         description: Partner deleted
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), partnerController.deletePartner);
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), partnerController.deletePartner);
 
 module.exports = router;

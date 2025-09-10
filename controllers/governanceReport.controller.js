@@ -97,12 +97,7 @@ module.exports.createGovernanceReport = async (req, res) => {
     // Gestion du fichier PDF
     let fileUrl = null;
     if (req.file) {
-      const uploadDir = "uploads/governance";
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      fileUrl = `/uploads/governance/${Date.now()}-${req.file.originalname}`;
-      fs.renameSync(req.file.path, path.join(uploadDir, path.basename(fileUrl)));
+        fileUrl = `/reports/${req.file.filename}`
     }
 
     const report = await prisma.governanceReport.create({
@@ -142,7 +137,8 @@ module.exports.createGovernanceReport = async (req, res) => {
       report,
     });
   } catch (error) {
-    console.error("Create governance report error:", error);
+    console.log(error)
+    // console.error("Create governance report error:", error);
     res.status(500).json({
       message: "Failed to create governance report",
       code: "CREATE_GOVERNANCE_REPORT_ERROR",
@@ -182,14 +178,10 @@ module.exports.updateGovernanceReport = async (req, res) => {
       publishedAt: publishedAt ? new Date(publishedAt) : undefined,
     };
 
+
     // Gestion du fichier PDF
     if (req.file) {
-      const uploadDir = "uploads/governance";
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      updateData.fileUrl = `/uploads/governance/${Date.now()}-${req.file.originalname}`;
-      fs.renameSync(req.file.path, path.join(uploadDir, path.basename(updateData.fileUrl)));
+      updateData.fileUrl = `/reports/${req.file.filename}`  
     }
 
     // Supprimer les champs non définis

@@ -59,16 +59,14 @@ const updateNewsValidation = [
   body("publishedAt").optional().isISO8601().withMessage("Please provide a valid publication date"),
 ]
 
-const newsletterValidation = [body("email").isEmail().normalizeEmail().withMessage("Please provide a valid email")]
-
-
 
 /**
  * @swagger
  * tags:
  *   name: News
- *   description: News and Newsletter management
+ *   description: News management
  */
+
 
 /**
  * @swagger
@@ -139,7 +137,11 @@ router.get("/:id", newsController.getNewsItem);
  *       201:
  *         description: News created
  */
-router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single("image"), newsController.createNews);
+router.post("/",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR"]),
+  upload.single("image"),
+  newsController.createNews);
 
 /**
  * @swagger
@@ -180,7 +182,11 @@ router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single
  *       200:
  *         description: News updated
  */
-router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single("image"), newsController.updateNews);
+router.put("/:id",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR"]),
+  upload.single("image"),
+  newsController.updateNews);
 
 /**
  * @swagger
@@ -201,62 +207,8 @@ router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.sing
  *       200:
  *         description: News deleted
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), newsController.deleteNews);
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), newsController.deleteNews);
 
-/**
- * @swagger
- * /api/news/newsletter/subscribers:
- *   get:
- *     summary: Get newsletter subscribers (Admin only)
- *     tags: [News]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of subscribers
- */
-router.get("/newsletter/subscribers", requireAuth, requireRole("ADMIN"), newsController.getNewsletterSubscribers);
 
-/**
- * @swagger
- * /api/news/newsletter/subscribe:
- *   post:
- *     summary: Subscribe to newsletter (public)
- *     tags: [News]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *     responses:
- *       201:
- *         description: Subscribed successfully
- */
-router.post("/newsletter/subscribe", newsController.subscribeToNewsletter);
-
-/**
- * @swagger
- * /api/news/newsletter/unsubscribe:
- *   post:
- *     summary: Unsubscribe from newsletter (public)
- *     tags: [News]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *     responses:
- *       200:
- *         description: Unsubscribed successfully
- */
-router.post("/newsletter/unsubscribe", newsController.unsubscribeFromNewsletter);
 
 module.exports = router;

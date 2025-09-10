@@ -7,7 +7,7 @@ const historyController = require("../controllers/history.controller");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 
 // Configuration de Multer pour les uploads d'images et documents
-const uploadDir = "uploads/history";
+const uploadDir = "/uploads/history";
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -185,6 +185,6 @@ router.put(
  *       200:
  *         description: History item deleted
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), historyController.deleteHistoryItem);
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), historyController.deleteHistoryItem);
 
 module.exports = router;

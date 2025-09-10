@@ -7,7 +7,7 @@ const settingsController = require("../controllers/settings.controller");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 
 
-const uploadDir = "uploads/settings";
+const uploadDir = "/uploads/settings";
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -104,5 +104,7 @@ router.put(
   upload.fields([{ name: "logo", maxCount: 1 }, { name: "favicon", maxCount: 1 }]),
   settingsController.updateSiteSettings
 );
+
+router.get("/audit-logs", settingsController.getAuditLogs);
 
 module.exports = router;

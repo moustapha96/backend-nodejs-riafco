@@ -80,7 +80,7 @@ module.exports.createTeamMember = async (req, res) => {
         position: position.trim(),
         bio: bio?.trim(),
         order: Number(order),
-        photo: req.file ? `/uploads/team/${req.file.filename}` : null,
+        photo: req.file ? `/teams/${req.file.filename}` : null,
       },
     });
 
@@ -148,7 +148,7 @@ module.exports.updateTeamMember = async (req, res) => {
     };
 
     if (req.file) {
-      updateData.photo = `/uploads/team/${req.file.filename}`;
+      updateData.photo = `/teams/${req.file.filename}`;
     }
 
     const updatedTeamMember = await prisma.teamMember.update({
@@ -156,18 +156,18 @@ module.exports.updateTeamMember = async (req, res) => {
       data: updateData,
     });
 
-    // await createAuditLog({
-    //   userId: res.locals.user.id,
-    //   action: "TEAM_MEMBER_UPDATED",
-    //   resource: "team_members",
-    //   resourceId: id,
-    //   details: {
-    //     changes: updateData,
-    //     updatedBy: res.locals.user.email,
-    //   },
-    //   ipAddress: req.ip,
-    //   userAgent: req.get("User-Agent"),
-    // });
+    await createAuditLog({
+      userId: res.locals.user.id,
+      action: "TEAM_MEMBER_UPDATED",
+      resource: "team_members",
+      resourceId: id,
+      details: {
+        changes: updateData,
+        updatedBy: res.locals.user.email,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
 
     res.status(200).json({
       message: "Team member updated successfully",

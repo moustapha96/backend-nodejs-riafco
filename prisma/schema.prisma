@@ -36,29 +36,153 @@ model User {
   profilePic       String?
   role             Role      @default(MEMBER)
   status           Status    @default(ACTIVE)
+  blocked          Boolean?   @default(false)
   resetToken       String?
+
+  registerToken    String?  @unique
+  registerTokenExpiry DateTime?
+
   resetTokenExpiry DateTime?
   lastLogin        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-
   permissions     Permission[]
-  // Relations
   activities      Activity[]
   events          Event[]
   news            News[]
   resources       Resource[]
   auditLogs       AuditLog[]
-  themes          Theme[]      @relation("UserThemes")
-  invitationsSent Invitation[] @relation("InvitationsSent")
+ 
 
-  Comment    Comment[]
-  Discussion Discussion[] @relation("UserDiscussions")
+  themes          Theme[]      @relation("UserThemes")
+  discussions      Discussion[]   @relation("UserDiscussions")    
+  invitationReceived Invitation?  @relation("InvitationReceived")
+  Invitation Invitation[] @relation("InvitationsSent")
 
   GovernanceReport GovernanceReport[]
-
   @@map("users")
+  Comment Comment[]
+  CommentLike CommentLike[]
 }
+
+
+
+model Invitation {
+  id          String           @id @default(uuid())
+  fullName    String
+  email       String
+  phone       String?
+  profilePic  String?
+  status      InvitationStatus @default(PENDING)
+  token       String?          @unique // Pour les liens d'acceptation
+
+  expiresAt   DateTime? // Date d'expiration de l'invitation
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  message     String?          // Personal message from inviter
+  acceptedAt  DateTime?        // When invitation was accepted
+  rejectedAt  DateTime?        // When invitation was rejected
+  
+  // Relations
+  userId      String?          @unique // Link to created user account
+  user        User?            @relation("InvitationReceived", fields: [userId], references: [id])
+  
+  
+  invitedById String
+  invitedBy   User             @relation("InvitationsSent", fields: [invitedById], references: [id])
+  
+  @@map("invitations")
+  
+}
+
+model Theme {
+  id          String       @id @default(uuid())
+  title       String
+  slug        String       @unique
+  isPublic    Boolean      @default(true) // Visibilité publique/privée
+  description String?
+  createdById String
+  createdBy   User         @relation("UserThemes", fields: [createdById], references: [id])
+  discussions Discussion[]
+
+  status      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isModerated  Boolean      @default(false)
+  moderatorIds String[]    // Array of moderator user IDs
+  
+  // Statistics
+  discussionCount Int      @default(0)
+  lastActivityAt  DateTime @default(now())
+
+  @@map("themes")
+
+ }
+
+model Discussion {
+  id          String   @id @default(uuid())
+
+  title       String     // Added title for discussions
+  isSticky    Boolean    @default(false) // Pinned discussions
+  isLocked    Boolean    @default(false) // Locked discussions
+  views       Int        @default(0)     // View count
+  content     String
+
+  themeId     String
+  theme       Theme    @relation(fields: [themeId], references: [id])
+
+  createdById String
+  createdBy   User     @relation("UserDiscussions", fields: [createdById], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  comments    Comment[]
+
+    
+  // Statistics
+  commentCount Int       @default(0)
+  lastCommentAt DateTime?
+  @@map("discussions")
+}
+
+model Comment {
+  id           String     @id @default(uuid())
+  content      String
+
+  discussionId String
+  discussion   Discussion @relation(fields: [discussionId], references: [id])
+
+  createdById  String
+  createdBy    User       @relation(fields: [createdById], references: [id])
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+
+  isEdited     Boolean     @default(false)
+  editedAt     DateTime?
+  // Threading support
+  parentId     String?
+  parent       Comment?    @relation("CommentReplies", fields: [parentId], references: [id])
+  replies      Comment[]   @relation("CommentReplies")
+  likes      CommentLike[]
+
+  @@map("comments") 
+}
+
+model CommentLike {
+  commentId String
+  comment   Comment @relation(fields: [commentId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@id([commentId, userId])
+  @@map("comments_likes") 
+}
+
 
 model GovernanceReport {
   id          String   @id @default(cuid())
@@ -70,10 +194,8 @@ model GovernanceReport {
   publishedAt   DateTime
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
   createdById   String?
   createdBy     User?     @relation(fields: [createdById], references: [id])
-  
   @@map("governance_reports")
 }
 
@@ -94,74 +216,13 @@ model AboutUs {
 
 
 
-model Invitation {
-  id          String           @id @default(uuid())
-  fullName    String
-  email       String
-  phone       String?
-  profilePic  String?
-  status      InvitationStatus @default(PENDING)
-  token       String?          @unique // Pour les liens d'acceptation
-  expiresAt   DateTime? // Date d'expiration de l'invitation
-  invitedById String
-  invitedBy   User             @relation("InvitationsSent", fields: [invitedById], references: [id])
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
-  @@map("invitations")
-}
-
-model Theme {
-  id          String       @id @default(uuid())
-  title       String
-  slug        String       @unique
-  isPublic    Boolean      @default(true) // Visibilité publique/privée
-  description String?
-  createdById String
-  createdBy   User         @relation("UserThemes", fields: [createdById], references: [id])
-  discussions Discussion[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("themes")
-}
-
-model Discussion {
-  id          String   @id @default(uuid())
-  content     String
-  themeId     String
-  theme       Theme    @relation(fields: [themeId], references: [id])
-  createdById String
-  createdBy   User     @relation("UserDiscussions", fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
- comments    Comment[]
-
-  @@map("discussions")
-}
-
-model Comment {
-  id           String     @id @default(uuid())
-  content      String
-
-  discussionId String
-  discussion   Discussion @relation(fields: [discussionId], references: [id])
-
-  createdById  String
-  createdBy    User       @relation(fields: [createdById], references: [id])
-
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@map("comments")
-}
 
 model Activity {
   id          String        @id @default(cuid())
-  title       String
-  description String
+  title_fr          String?
+  title_en          String?
+  description_fr String?
+  description_en String?
   icon        String?
   image       String?
   status      PublishStatus @default(DRAFT)
@@ -172,6 +233,8 @@ model Activity {
 
   @@map("activities")
 }
+
+
 
 model Event {
   id               String        @id @default(cuid())
@@ -196,8 +259,10 @@ model Event {
 
 model News {
   id          String        @id @default(cuid())
-  title       String
-  content     String
+  title_fr       String?
+  title_en       String?
+  content_fr   String?
+  content_en  String?
   image       String?
   status      PublishStatus @default(DRAFT)
   publishedAt DateTime?
@@ -206,18 +271,42 @@ model News {
   updatedAt   DateTime      @updatedAt
 
   author User @relation(fields: [authorId], references: [id])
-
+  campaigns NewsletterCampaign[]
   @@map("news")
 }
+
 
 model NewsletterSubscriber {
   id        String             @id @default(cuid())
   email     String             @unique
+  firstName String?
+  lastName  String?
   status    SubscriptionStatus @default(ACTIVE)
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
-
+  
   @@map("newsletter_subscribers")
+}
+
+
+model NewsletterCampaign {
+  id             String         @id @default(cuid())
+  subject        String
+  content        String
+  htmlContent    String?
+  status         CampaignStatus @default(DRAFT)
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  recipientCount Int            @default(0)
+  openCount      Int            @default(0)
+  clickCount     Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  newsId String
+  news   News @relation(fields: [newsId], references: [id])
+  
+  @@map("newsletter_campaigns")
 }
 
 model Resource {
@@ -229,6 +318,7 @@ model Resource {
   fileType    String
   fileSize    Int?
   categoryId  String?
+  url         String?
   tags        String[]
   authorId    String
   isPublic    Boolean  @default(true)
@@ -276,6 +366,7 @@ model MemberCountry {
   flag      String?
   latitude  Float?
   longitude Float?
+  description String?                                // Texte descriptif
   status    Status                 @default(ACTIVE)
   createdAt DateTime               @default(now())
   updatedAt DateTime               @updatedAt
@@ -303,6 +394,10 @@ model SiteSettings {
   logo         String?
   favicon      String?
   contactEmail String?
+  contactAddress String?
+  contactPhone String?
+  contactMobile String?
+  urlSite       String?
   socialMedia  Json?
   footer       String?
   createdAt    DateTime @default(now())
@@ -338,22 +433,7 @@ model ResourceCategory {
   @@map("resource_categories")
 }
 
-model NewsletterCampaign {
-  id             String         @id @default(cuid())
-  subject        String
-  content        String
-  htmlContent    String?
-  status         CampaignStatus @default(DRAFT)
-  scheduledAt    DateTime?
-  sentAt         DateTime?
-  recipientCount Int            @default(0)
-  openCount      Int            @default(0)
-  clickCount     Int            @default(0)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
 
-  @@map("newsletter_campaigns")
-}
 
 model Contact {
   id          String        @id @default(cuid())
@@ -401,9 +481,10 @@ model SocialFeed {
 model LegalMention {
   id            String    @id @default(cuid())
   type          LegalType
-  title         String
-  content       String
-  language      String    @default("fr")
+  title_fr         String?
+  title_en         String?
+  content_fr       String?
+  content_en       String?
   isActive      Boolean   @default(true)
   version       String    @default("1.0")
   effectiveDate DateTime  @default(now())

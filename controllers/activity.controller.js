@@ -17,8 +17,10 @@ module.exports.getAllActivities = async (req, res) => {
     if (status) where.status = status
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { title_fr: { contains: search, mode: "insensitive" } },
+        { title_en: { contains: search, mode: "insensitive" } },
+        { description_fr: { contains: search, mode: "insensitive" } },
+        { description_en: { contains: search, mode: "insensitive" } },
       ]
     }
 
@@ -108,14 +110,9 @@ module.exports.createActivity = async (req, res) => {
       })
     }
 
-    const { title, description, status = "DRAFT" } = req.body
+    const { title_fr,title_en, description_fr, description_en, status = "DRAFT" } = req.body
     const authorId = res.locals.user.id
 
-    // Ensure upload directory exists
-    const uploadDir = "uploads/activities"
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true })
-    }
 
     let iconPath = null
     let imagePath = null
@@ -123,22 +120,19 @@ module.exports.createActivity = async (req, res) => {
     // Handle file uploads
     if (req.files) {
       if (req.files.icon) {
-        const iconFile = req.files.icon[0]
-        iconPath = `/uploads/activities/${Date.now()}-icon-${iconFile.originalname}`
-        fs.renameSync(iconFile.path, path.join(uploadDir, path.basename(iconPath)))
+        iconPath = `/activities/${req.files.icon[0].filename}`
       }
-
       if (req.files.image) {
-        const imageFile = req.files.image[0]
-        imagePath = `/uploads/activities/${Date.now()}-image-${imageFile.originalname}`
-        fs.renameSync(imageFile.path, path.join(uploadDir, path.basename(imagePath)))
+        imagePath = `/activities/${req.files.image[0].filename}`
       }
     }
 
     const activity = await prisma.activity.create({
       data: {
-        title: title.trim(),
-        description: description.trim(),
+        title_fr: title_fr.trim(),
+        title_en: title_en.trim(),
+        description_fr: description_fr.trim(),
+        description_en: description_en.trim(),
         icon: iconPath,
         image: imagePath,
         status,
@@ -190,7 +184,7 @@ module.exports.updateActivity = async (req, res) => {
     }
 
     const { id } = req.params
-    const { title, description, status } = req.body
+    const { title_fr, title_en, description_fr, description_en, status } = req.body
 
     const existingActivity = await prisma.activity.findUnique({
       where: { id },
@@ -204,8 +198,10 @@ module.exports.updateActivity = async (req, res) => {
     }
 
     const updateData = {
-      title: title?.trim(),
-      description: description?.trim(),
+      title_fr: title_fr.trim(),
+      title_en: title_en.trim(),
+      description_fr: description_fr.trim(),
+      description_en: description_en.trim(),
       status,
     }
 
@@ -218,21 +214,11 @@ module.exports.updateActivity = async (req, res) => {
 
     // Handle file uploads
     if (req.files) {
-      const uploadDir = "uploads/activities"
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true })
-      }
-
       if (req.files.icon) {
-        const iconFile = req.files.icon[0]
-        updateData.icon = `/uploads/activities/${Date.now()}-icon-${iconFile.originalname}`
-        fs.renameSync(iconFile.path, path.join(uploadDir, path.basename(updateData.icon)))
+         updateData.icon = `/activities/${req.files.icon[0].filename}`
       }
-
       if (req.files.image) {
-        const imageFile = req.files.image[0]
-        updateData.image = `/uploads/activities/${Date.now()}-image-${imageFile.originalname}`
-        fs.renameSync(imageFile.path, path.join(uploadDir, path.basename(updateData.image)))
+         updateData.image = `/activities/${req.files.image[0].filename}`
       }
     }
 
@@ -380,3 +366,62 @@ module.exports.updateActivityStatus = async (req, res) => {
     })
   }
 }
+
+// Dans votre contrôleur
+module.exports.getAllActivitiesSimilaire = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status, search,activiteId, authorId, sortBy = "createdAt", sortOrder = "desc" } = req.query;
+    const skip = (page - 1) * limit;
+    const take = Number.parseInt(limit);
+    const where = {};
+
+    if (status) where.status = status;
+    if (authorId) where.authorId = authorId;
+    if (search) {
+      where.OR = [
+        { title_fr: { contains: search, mode: "insensitive" } },
+        { title_en: { contains: search, mode: "insensitive" } },
+        { description_fr: { contains: search, mode: "insensitive" } },
+        { description_en: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [activities, total] = await Promise.all([
+      prisma.activity.findMany({
+        where,
+        include: {
+          author: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profilePic: true,
+              status: true,
+              role: true
+            },
+          },
+        },
+        skip,
+        take,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      prisma.activity.count({ where }),
+    ]);
+
+    res.status(200).json({
+      activities,
+      pagination: {
+        page: Number.parseInt(page),
+        limit: take,
+        total,
+        pages: Math.ceil(total / take),
+      },
+    });
+  } catch (error) {
+    console.error("Get all activities error:", error);
+    res.status(500).json({
+      message: "Failed to retrieve activities",
+      code: "GET_ACTIVITIES_ERROR",
+    });
+  }
+};

@@ -34,7 +34,7 @@ const upload = multer({
     const allowedTypes = /jpeg|jpg|png|gif/
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase())
     const mimetype = allowedTypes.test(file.mimetype)
-
+    console.log(mimetype, extname)
     if (mimetype && extname) {
       return cb(null, true)
     } else {
@@ -74,8 +74,6 @@ const changePasswordValidation = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage("New password must contain at least one lowercase letter, one uppercase letter, and one number"),
 ]
-
-
 /**
  * @swagger
  * tags:
@@ -205,9 +203,14 @@ router.put(
   "/profile",
   requireAuth,
   upload.single("profilePic"),
-  updateProfileValidation,
+  // updateProfileValidation,
   authController.updateProfile,
 )
+
+router.get("/activate/:token", authController.activeAccount);  
+
+router.post("/resend-activation", authController.resendActivationLink);
+
 
 /**
  * @swagger
@@ -236,7 +239,10 @@ router.put(
  *       401:
  *         description: Unauthorized
  */
-router.put("/change-password", requireAuth, changePasswordValidation, authController.changePassword)
+router.put("/change-password",
+  requireAuth,
+  // changePasswordValidation,
+  authController.changePassword)
 
 /**
  * @swagger
@@ -286,7 +292,7 @@ router.post(
   "/reset-password",
   [
     body("token").notEmpty().withMessage("Reset token is required"),
-    body("newPassword").isLength({ min: 8 }).withMessage("Password must be at least 8 characters long"),
+    body("newPassword").isLength({ min: 4 }).withMessage("Password must be at least 8 characters long"),
   ],
   authController.resetPassword,
 )

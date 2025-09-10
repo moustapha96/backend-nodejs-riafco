@@ -8,7 +8,7 @@ const eventController = require("../controllers/event.controller")
 const { requireAuth, requireRole, requirePermission } = require("../middleware/auth.middleware")
 
 // Ensure upload directory exists
-const uploadDir = "uploads/events"
+const uploadDir = "/uploads/events"
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true })
 }
@@ -239,7 +239,7 @@ router.put(
  *       200:
  *         description: Event deleted
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), eventController.deleteEvent)
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), eventController.deleteEvent)
 
 
 module.exports = router

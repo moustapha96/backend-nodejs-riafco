@@ -7,14 +7,11 @@ const prisma = new PrismaClient()
 // Get all legal mentions
 const getAllLegalMentions = async (req, res) => {
   try {
-    const { type, language = "fr", active } = req.query
+    const { type, active } = req.query
 
     const where = {}
     if (type) {
       where.type = type
-    }
-    if (language) {
-      where.language = language
     }
     if (active !== undefined) {
       where.isActive = active === "true"
@@ -81,14 +78,15 @@ const createLegalMention = async (req, res) => {
       })
     }
 
-    const { type, title, content, language = "fr", isActive = true, version = "1.0", effectiveDate } = req.body
+    const { type, title_fr, title_en, content_fr, content_en, isActive = true, version = "1.0", effectiveDate } = req.body
 
     const legalMention = await prisma.legalMention.create({
       data: {
         type,
-        title,
-        content,
-        language,
+        title_fr,
+        title_en,
+        content_fr,
+        content_en,
         isActive,
         version,
         effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
@@ -133,7 +131,7 @@ const updateLegalMention = async (req, res) => {
     }
 
     const { id } = req.params
-    const { type, title, content, language, isActive, version, effectiveDate } = req.body
+    const { type, title_fr, title_en, content_fr, content_en, isActive, version, effectiveDate } = req.body
 
     const legalMention = await prisma.legalMention.findUnique({
       where: { id },
@@ -148,9 +146,10 @@ const updateLegalMention = async (req, res) => {
 
     const updateData = {
       type,
-      title,
-      content,
-      language,
+      title_fr,
+      title_en,
+      content_fr,
+      content_en,
       isActive,
       version,
       effectiveDate: effectiveDate ? new Date(effectiveDate) : legalMention.effectiveDate,

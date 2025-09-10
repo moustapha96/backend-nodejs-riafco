@@ -2,7 +2,8 @@ const { PrismaClient } = require("@prisma/client");
 const { validationResult } = require("express-validator");
 const fs = require("fs");
 const path = require("path");
-const { logAudit } = require("../utils/audit");
+const { logAudit, createAuditLog, getAllAuditLogs } = require("../utils/audit");
+const { auditLog } = require("../config/db");
 const prisma = new PrismaClient();
 
 // 1. Récupérer les paramètres du site
@@ -47,7 +48,8 @@ const updateSiteSettings = async (req, res) => {
       });
     }
 
-    const { siteName, contactEmail, socialMedia, footer } = req.body;
+    const { siteName, contactEmail, urlSite , socialMedia,
+      footer, contactPhone, contactMobile, contactAddress } = req.body;
     const logo = req.files?.logo?.[0];
     const favicon = req.files?.favicon?.[0];
 
@@ -65,6 +67,10 @@ const updateSiteSettings = async (req, res) => {
       siteName: siteName || settings.siteName,
       contactEmail: contactEmail || settings.contactEmail,
       footer: footer || settings.footer,
+      contactPhone: contactPhone || settings.contactPhone,
+      contactMobile: contactMobile || settings.contactMobile,
+      contactAddress: contactAddress || settings.contactAddress,
+      urlSite: urlSite || settings.urlSite
     };
 
     // Mettre à jour les réseaux sociaux si fournis
@@ -104,7 +110,17 @@ const updateSiteSettings = async (req, res) => {
       data: updateData,
     });
 
-    await logAudit(req.user.id, "UPDATE", "SiteSettings", updatedSettings.id, updateData, req.ip, req.get("User-Agent"));
+     await createAuditLog({
+      userId: res.locals.user.id,
+      action: "UPDATE_SETTINGS",
+      resource: "SiteSettings",
+      resourceId: updatedSettings.id,
+      details: updateData,
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+     });
+    
+    
     res.json({
       success: true,
       message: "Site settings updated successfully",
@@ -129,7 +145,54 @@ const updateSiteSettings = async (req, res) => {
   }
 };
 
+const getAuditLogs = async (req, res) => {
+  try {
+
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+     const [audits, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+        } },
+      }),
+      prisma.auditLog.count(), // Compte total des éléments
+    ]);
+    
+   res.json({
+      success: true,
+      data: audits,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total, // Nombre total d'éléments dans la base
+        totalPages: Math.ceil(total / Number(limit)),
+      },
+    });
+
+    } catch (error) {
+    console.error("Get audit log error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error gettings audit log",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   getSiteSettings,
   updateSiteSettings,
+  getAuditLogs
 };

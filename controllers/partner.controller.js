@@ -96,8 +96,13 @@ const createPartner = async (req, res) => {
     }
 
     const { name, description, country, address, email, phone, website } = req.body
-    const logo = req.file ? req.file.filename : null
+    let logo = null
 
+     // Handle logo update
+    if (req.file) {
+      logo = `/partners/${req.file.filename}`
+    }
+    console.log(logo, name, description, country, address, email, phone, website)
     const partner = await prisma.partner.create({
       data: {
         name,
@@ -162,6 +167,12 @@ const updatePartner = async (req, res) => {
       })
     }
 
+     let logo = null
+     // Handle logo update
+    if (req.file) {
+      logo = `/partners/${req.file.filename}`
+    }
+
     const updateData = {
       name,
       description,
@@ -171,18 +182,10 @@ const updatePartner = async (req, res) => {
       phone,
       website,
     }
-
-    // Handle logo update
-    if (req.file) {
-      // Delete old logo if exists
-      if (existingPartner.logo) {
-        const oldLogoPath = path.join("uploads/partners", existingPartner.logo)
-        if (fs.existsSync(oldLogoPath)) {
-          fs.unlinkSync(oldLogoPath)
-        }
-      }
-      updateData.logo = req.file.filename
+    if (logo) {
+      updateData.logo = logo
     }
+
 
     const partner = await prisma.partner.update({
       where: { id },

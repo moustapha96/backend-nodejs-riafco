@@ -1,8 +1,44 @@
 const router = require("express").Router();
 const governanceReportController = require("../controllers/governanceReport.controller");
-const { requireAuth } = require("../middleware/auth.middleware");
+const { requireAuth, requireRole } = require("../middleware/auth.middleware");
 const multer = require("multer");
-const upload = multer({ dest: "./uploads/governance/" });
+const path = require("path");
+const fs = require("fs");
+
+
+
+const uploadDir = "uploads/reports"
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
+
+// Configure multer for partner logo uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir)
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
+    cb(null, "report-" + uniqueSuffix + path.extname(file.originalname))
+  },
+})
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limite à 5 Mo
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|jpeg|jpg|png|gif|webp|mp4|mp3|zip|rar/
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Seuls les fichiers image sont autorisés (JPEG, JPG, PNG, GIF, WEBP, SVG)"));
+    }
+  },
+});
+
+
 
 /**
  * @swagger
@@ -110,7 +146,7 @@ router.get("/:id", governanceReportController.getGovernanceReport);
 router.post(
   "/",
   requireAuth,
-  upload.single("file"),
+  upload.single("fileUrl"),
   governanceReportController.createGovernanceReport,
 );
 
@@ -165,7 +201,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  upload.single("file"),
+  upload.single("fileUrl"),
   governanceReportController.updateGovernanceReport,
 );
 
@@ -192,6 +228,6 @@ router.put(
  *       404:
  *         description: Governance report not found
  */
-router.delete("/:id", requireAuth, governanceReportController.deleteGovernanceReport);
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), governanceReportController.deleteGovernanceReport);
 
 module.exports = router;

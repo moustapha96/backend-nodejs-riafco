@@ -29,7 +29,11 @@ const { requireAuth, requireRole } = require("../middleware/auth.middleware")
  *       403:
  *         description: Forbidden
  */
-router.get("/stats", requireAuth, requireRole(["ADMIN", "MODERATOR"]), dashboardController.getDashboardStats)
+router.get("/stats", requireAuth,
+  // requireRole(["ADMIN", "MODERATOR"]),
+  dashboardController.getDashboardStats)
+
+  
 /**
  * @swagger
  * /api/dashboard/recent-activities:

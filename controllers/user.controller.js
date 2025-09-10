@@ -4,11 +4,19 @@ const { validationResult } = require("express-validator");
 const crypto = require("crypto");
 const emailService = require("../services/email.service");
 const { createAuditLog } = require("../utils/audit");
+const { isArray } = require("util");
 const prisma = new PrismaClient();
+const saltRounds = Number.parseInt(process.env.BCRYPT_ROUNDS) || 12;
 
 module.exports.getAllUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, role, status, sortBy = "createdAt", sortOrder = "desc" } = req.query;
+    const { page = 1, limit = 5,
+      search,
+      role,
+      status,
+      sortBy = "createdAt", sortOrder = "desc",
+      permissions = ""
+    } = req.query;
     const skip = (page - 1) * limit;
     const take = Number.parseInt(limit);
 
@@ -29,6 +37,13 @@ module.exports.getAllUsers = async (req, res) => {
       where.status = status;
     }
 
+    if (permissions) {
+      where.permissions = {
+        some: {
+          name: { contains: permissions, mode: "insensitive" }
+        }
+      };
+    }
     // Get users with pagination
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -143,8 +158,8 @@ module.exports.createUser = async (req, res) => {
       lastName,
       email,
       phone,
-      role = "ADMIN",
-      status = "ACTIVE",
+      role = "MODERATOR",
+      status = "INACTIVE",
       sendInvitation = true,
       permissions: permissionNames
     } = req.body;
@@ -154,14 +169,14 @@ module.exports.createUser = async (req, res) => {
         name: { in: permissionNames },
       },
     });
-   
+
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
 
     if (existingUser) {
       return res.status(400).json({
-        message: "Email already in use",
+        message: "Adresse email déjà utilisé",
         code: "EMAIL_EXISTS",
       });
     }
@@ -170,6 +185,9 @@ module.exports.createUser = async (req, res) => {
     const tempPassword = crypto.randomBytes(8).toString("hex");
     const saltRounds = Number.parseInt(process.env.BCRYPT_ROUNDS) || 12;
     const hashedPassword = await bcrypt.hash(tempPassword, saltRounds);
+    const registerToken = crypto.randomBytes(16).toString("hex");
+    const expiryDate = new Date(Date.now() + 60 * 60 * 1000); // 1h
+
 
     // Create user
     const user = await prisma.user.create({
@@ -181,7 +199,9 @@ module.exports.createUser = async (req, res) => {
         password: hashedPassword,
         role,
         status,
-        profilePic: req.file ? `http://localhost:5000/uploads/profiles/${req.file.filename}` : null,
+        registerToken,
+        registerTokenExpiry: expiryDate,
+        profilePic: req.file ? `/profiles/${req.file.filename}` : null,
         permissions: {
           connect: existingPermissions.map((permission) => ({ id: permission.id })),
         },
@@ -195,8 +215,7 @@ module.exports.createUser = async (req, res) => {
         role: true,
         status: true,
         profilePic: true,
-        permissions: true, 
-        
+        permissions: true,
         createdAt: true,
       }
     });
@@ -217,19 +236,16 @@ module.exports.createUser = async (req, res) => {
       userAgent: req.get("User-Agent"),
     });
 
-    // Send invitation email if requested
-    if (sendInvitation) {
-      try {
-        await emailService.sendInvitationEmail(user, tempPassword);
-      } catch (emailError) {
-        console.error("Failed to send invitation email:", emailError);
-        // Don't fail user creation if email fails
-      }
+    try {
+      await emailService.sendInvitationEmail(user, tempPassword, registerToken);
+    } catch (emailError) {
+      console.error("Failed to send invitation email:", emailError);
     }
+
     res.status(201).json({
       message: "User created successfully",
       user,
-      tempPassword: sendInvitation ? undefined : tempPassword, // Only return password if not sending email
+      tempPassword: tempPassword, // Only return password if not sending email
     });
   } catch (error) {
     console.error("Create user error:", error);
@@ -240,69 +256,105 @@ module.exports.createUser = async (req, res) => {
   }
 };
 
+
 module.exports.updateUser = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
-        message: "Validation errors",
+        message: "Erreurs de validation",
         errors: errors.array(),
       });
     }
 
     const { id } = req.params;
-    const { firstName, lastName, phone, role, status, organizationId , permissions} = req.body;
+    const {email ,  firstName, lastName, phone, role, status, permissions = [] } = req.body;
 
-    // Check if user exists
+    // 1. Vérifier si l'utilisateur existe
     const existingUser = await prisma.user.findUnique({
       where: { id },
+      include: { permissions: true }
     });
 
     if (!existingUser) {
       return res.status(404).json({
-        message: "User not found",
+        message: "Utilisateur non trouvé",
         code: "USER_NOT_FOUND",
       });
     }
 
-    // Prevent self-role modification for non-admins
+     if (email && email.toLowerCase() !== existingUser.email) {
+      const emailUsed = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      });
+      if (emailUsed) {
+        return res.status(400).json({
+          message: "Cette adresse e-mail est déjà utilisée par un autre utilisateur.",
+          code: "EMAIL_EXISTS",
+        });
+      }
+     }
+    
+    
+    // 2. Empêcher la modification de son propre rôle pour les non-admins
     if (id === res.locals.user.id && role && role !== existingUser.role && res.locals.user.role !== "ADMIN") {
       return res.status(403).json({
-        message: "Cannot modify your own role",
+        message: "Vous ne pouvez pas modifier votre propre rôle",
         code: "SELF_ROLE_MODIFICATION",
       });
     }
 
+    // 3. Trouver ou créer les permissions nécessaires
+    const permissionRecords = await Promise.all(
+      permissions.map(async (permissionName) => {
+        return await prisma.permission.upsert({
+          where: { name: permissionName.trim() },
+          create: {
+            name: permissionName.trim(),
+            description: `Permission ${permissionName.trim()}` // Description par défaut
+          },
+          update: {}
+        });
+      })
+    );
 
-     const existingPermissions = await prisma.permission.findMany({
-      where: {
-        name: { in: permissions },
-      },
-     });
-    
+   
+
+    // 4. Préparer les données de mise à jour
     const updateData = {
       firstName: firstName?.trim(),
       lastName: lastName?.trim(),
       phone: phone?.trim(),
       role,
       status,
-      profilePic: req.file ? `http://localhost:5000/uploads/profiles/${req.file.filename}` : existingUser.profilePic,
       permissions: {
-        connect: existingPermissions.map((permission) => ({ id: permission.id })),
-      },
+        set: [], // Réinitialiser les permissions existantes
+      }
     };
+    if (email) {
+      updateData.email = email.toLowerCase().trim();
+    }
+    
+    // Ajouter les nouvelles permissions seulement si le tableau n'est pas vide
+    if (permissionRecords.length > 0) {
+      updateData.permissions.connect = permissionRecords.map(permission => ({
+        id: permission.id
+      }));
+    }
 
-    // Remove undefined values
+    // Supprimer les valeurs undefined
     Object.keys(updateData).forEach((key) => {
-      if (updateData[key] === undefined) {
+      if (updateData[key] === undefined || updateData[key] === null) {
         delete updateData[key];
       }
     });
 
+    // 5. Gérer l'upload de la photo de profil
     if (req.file) {
-      updateData.profilePic = `http://localhost:5000/uploads/profiles/${req.file.filename}`;
+      updateData.profilePic = `/profiles/${req.file.filename}`;
     }
 
+    // 6. Mettre à jour l'utilisateur
     const updatedUser = await prisma.user.update({
       where: { id },
       data: updateData,
@@ -315,43 +367,64 @@ module.exports.updateUser = async (req, res) => {
         role: true,
         status: true,
         profilePic: true,
-        permissions: true, 
-        organization: {
+        permissions: {
           select: {
             id: true,
             name: true,
-            sector: true,
-            country: true,
-          },
+            description: true
+          }
         },
         updatedAt: true,
       },
     });
 
-    // Create audit log
+    // 7. Envoyer l'email approprié selon le statut
+    if (updatedUser.status === "INACTIVE") {
+      try {
+        await emailService.sendInactiveStatusEmail(updatedUser);
+      } catch (emailError) {
+        console.error("Échec de l'envoi de l'email de statut inactif:", emailError);
+      }
+    } else if (status === "ACTIVE" && existingUser.status !== "ACTIVE") {
+      // Seulement envoyer l'email d'activation si le statut a changé vers ACTIVE
+      try {
+        await emailService.sendActiveStatusEmail(updatedUser);
+      } catch (emailError) {
+        console.error("Échec de l'envoi de l'email de statut actif:", emailError);
+      }
+    }
+
+    // 8. Créer un log d'audit
     await createAuditLog({
       userId: res.locals.user.id,
       action: "USER_UPDATED",
       resource: "users",
       resourceId: id,
       details: {
-        changes: updateData,
+        changes: {
+          ...updateData,
+          permissions: permissions // Stocker les noms des permissions pour le log
+        },
         updatedBy: res.locals.user.email,
-        organization: updatedUser.organization?.name,
+        previousStatus: existingUser.status,
+        newStatus: status,
       },
       ipAddress: req.ip,
       userAgent: req.get("User-Agent"),
     });
 
     res.status(200).json({
-      message: "User updated successfully",
+      success: true,
+      message: "Utilisateur mis à jour avec succès",
       user: updatedUser,
     });
+
   } catch (error) {
-    console.error("Update user error:", error);
+    console.error("Erreur lors de la mise à jour de l'utilisateur:", error);
     res.status(500).json({
-      message: "Failed to update user",
+      message: "Échec de la mise à jour de l'utilisateur",
       code: "UPDATE_USER_ERROR",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -554,5 +627,23 @@ module.exports.getUserStats = async (req, res) => {
       message: "Failed to get user statistics",
       code: "GET_STATS_ERROR",
     });
+  }
+};
+
+
+module.exports.sendMailToUser = async (req, res) => {
+  try {
+    const { to, subject, html, attachments } = req.body;
+    if (!to || !subject || !html) {
+      return res.status(400).json({ message: "Champs manquants : to, subject ou html" });
+    }
+    const recipients = Array.isArray(to) ? to : [to];
+    for (const mail of recipients) {
+      await emailService.sendMailToUser(mail, subject, html, "", attachments);
+    }
+    res.status(200).json({ message: "Emails envoyés avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de l'envoi des mails :", error);
+    res.status(500).json({ message: "Échec de l'envoi des emails", error: error.message });
   }
 };

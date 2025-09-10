@@ -109,7 +109,7 @@ module.exports.createEvent = async (req, res) => {
       });
     }
     const { title, description,
-      startDate, endDate,maxAttendees,
+      startDate, endDate, maxAttendees,
       isVirtual, location, status = "DRAFT",
       registrationLink
     } = req.body;
@@ -117,7 +117,7 @@ module.exports.createEvent = async (req, res) => {
     const authorId = res.locals.user.id;
 
     // Vérifier et créer le dossier de téléchargement
-    const uploadDir = "uploads/events";
+    const uploadDir = "/uploads/events";
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -125,7 +125,7 @@ module.exports.createEvent = async (req, res) => {
     // Gérer l'image
     let imagePath = null;
     if (req.file) {
-      imagePath = `/uploads/events/${Date.now()}-${req.file.originalname}`;
+      imagePath = `/events/${Date.now()}-${req.file.originalname}`;
       fs.renameSync(req.file.path, path.join(uploadDir, path.basename(imagePath)));
     }
 
@@ -191,7 +191,7 @@ module.exports.updateEvent = async (req, res) => {
 
     const { id } = req.params;
     const { title, description, startDate, endDate, location,
-            isVirtual, status, registrationLink } = req.body;
+      isVirtual, status, registrationLink, maxAttendees } = req.body;
 
     const existingEvent = await prisma.event.findUnique({
       where: { id }
@@ -211,7 +211,7 @@ module.exports.updateEvent = async (req, res) => {
       endDate: endDate ? new Date(endDate) : undefined,
       location: location?.trim(),
       maxAttendees: maxAttendees ? Number(maxAttendees) : existingEvent.maxAttendees,
-      isVirtual: isVirtual ?? existingEvent.isVirtual,
+      isVirtual: Boolean( isVirtual) ?? existingEvent.isVirtual,
       status,
       registrationLink: registrationLink?.trim(),
     };
@@ -225,14 +225,15 @@ module.exports.updateEvent = async (req, res) => {
 
     // Gérer l'image
     if (req.file) {
-      const uploadDir = "uploads/events";
+      const uploadDir = "/uploads/events";
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
       }
-      updateData.image = `/uploads/events/${Date.now()}-${req.file.originalname}`;
+      updateData.image = `/events/${Date.now()}-${req.file.originalname}`;
       fs.renameSync(req.file.path, path.join(uploadDir, path.basename(updateData.image)));
     }
-console.log("updateData =>", updateData);
+
+    console.log("updateData =>", updateData);
     const updatedEvent = await prisma.event.update({
       where: { id },
       data: updateData,

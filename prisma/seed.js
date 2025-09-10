@@ -93,9 +93,9 @@ async function main() {
 
 
   console.log("\n👥 Creating users...");
-    const adminPassword = await bcrypt.hash("Admin123!", 12);
-    const moderatorPassword = await bcrypt.hash("Moderator123!", 12);
-    const memberPassword = await bcrypt.hash("Member123!", 12);
+    const adminPassword = await bcrypt.hash("password", 12);
+    const moderatorPassword = await bcrypt.hash("password", 12);
+    const memberPassword = await bcrypt.hash("password", 12);
 
     const adminUser = await prisma.user.upsert({
       where: { email: "admin@riafco.org" },
@@ -275,6 +275,33 @@ async function main() {
     }),
   ])
 
+    // Create newsletter campaign
+  const newsletterCampaign = await prisma.newsletterCampaign.create({
+    data: {
+      newsId: news[0].id,
+      subject: "Newsletter RIAFCO - Mars 2024",
+      content: "Découvrez les dernières actualités de la RIAFCO...",
+      htmlContent: "<h1>Newsletter RIAFCO</h1><p>Découvrez les dernières actualités...</p>",
+      status: "SENT",
+      sentAt: new Date(),
+      recipientCount: 150,
+      openCount: 120,
+      clickCount: 45,
+    },
+  })
+    const newsletterCampaign2 = await prisma.newsletterCampaign.create({
+    data: {
+      newsId: news[1].id,
+      subject: "Newsletter RIAFCO - Avril 2024",
+      content: "Découvrez les dernières actualités de la RIAFCO...",
+      htmlContent: "<h1>Newsletter RIAFCO</h1><p>Découvrez les dernières actualités...</p>",
+      status: "SENT",
+      sentAt: new Date(),
+      recipientCount: 150,
+      openCount: 120,
+      clickCount: 45,
+    },
+  })
   // Create resources
   const resources = await Promise.all([
     prisma.resource.create({
@@ -282,7 +309,7 @@ async function main() {
         title: "Guide du droit des contrats",
         description: "Guide complet sur le droit des contrats internationaux",
         fileName: "guide-droit-contrats.pdf",
-        filePath: "/uploads/resources/guide-droit-contrats.pdf",
+        filePath: " /uploads/resources/guide-droit-contrats.pdf",
         fileType: "application/pdf",
         fileSize: 2048000,
         categoryId: resourceCategories[0].id,
@@ -296,7 +323,7 @@ async function main() {
         title: "Présentation formation éthique",
         description: "Support de présentation pour la formation sur l'éthique juridique",
         fileName: "formation-ethique.pptx",
-        filePath: "/uploads/resources/formation-ethique.pptx",
+        filePath: " /uploads/resources/formation-ethique.pptx",
         fileType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         fileSize: 5120000,
         categoryId: resourceCategories[1].id,
@@ -454,7 +481,7 @@ const memberCountries = await Promise.all([
         date: new Date("1985-03-15"),
         title: "Fondation de la RIAFCO",
         description: "Création officielle du Réseau International des Avocats Francophones et Catholiques",
-        category: "FOUNDATION",
+        // category: "FOUNDATION",
       },
     }),
     prisma.historyItem.create({
@@ -462,7 +489,7 @@ const memberCountries = await Promise.all([
         date: new Date("1990-06-20"),
         title: "Premier congrès international",
         description: "Organisation du premier congrès international à Paris avec 150 participants",
-        category: "MILESTONE",
+        // category: "MILESTONE",
       },
     }),
     prisma.historyItem.create({
@@ -470,7 +497,7 @@ const memberCountries = await Promise.all([
         date: new Date("2000-01-01"),
         title: "Passage au nouveau millénaire",
         description: "Adaptation de la RIAFCO aux défis du 21ème siècle",
-        category: "MILESTONE",
+        // category: "MILESTONE",
       },
     }),
   ])
@@ -491,19 +518,7 @@ const memberCountries = await Promise.all([
     }),
   ])
 
-  // Create newsletter campaign
-  const newsletterCampaign = await prisma.newsletterCampaign.create({
-    data: {
-      subject: "Newsletter RIAFCO - Mars 2024",
-      content: "Découvrez les dernières actualités de la RIAFCO...",
-      htmlContent: "<h1>Newsletter RIAFCO</h1><p>Découvrez les dernières actualités...</p>",
-      status: "SENT",
-      sentAt: new Date(),
-      recipientCount: 150,
-      openCount: 120,
-      clickCount: 45,
-    },
-  })
+
 
   // Create contacts
   const contacts = await Promise.all([
@@ -639,18 +654,33 @@ const memberCountries = await Promise.all([
   const governanceReports = await Promise.all([
     prisma.governanceReport.create({
       data: {
-        title: "Rapport d'activité 2023",
-        description: "Rapport annuel des activités de la RIAFCO pour l'année 2023",
-        fileUrl: "/uploads/reports/rapport-activite-2023.pdf",
+        
+        fileUrl: " /uploads/reports/rapport-activite-2023.pdf",
         publishedAt: new Date("2024-01-15"),
+        title_fr: "Rapport d'activité 2023",
+        title_en: "Activity Report 2023",
+        paragraphe_fr: "Ce rapport présente les activités de la RIAFCO pour l'année 2023.",
+        paragraphe_en: "This report presents the activities of RIAFCO for the year 2023.",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: {
+          connect: { id: adminUser.id },
+        },
       },
     }),
     prisma.governanceReport.create({
       data: {
-        title: "Rapport financier 2023",
-        description: "Rapport financier et comptes de la RIAFCO pour l'exercice 2023",
-        fileUrl: "/uploads/reports/rapport-financier-2023.pdf",
+        fileUrl: " /uploads/reports/rapport-financier-2023.pdf",
         publishedAt: new Date("2024-02-01"),
+        title_fr: "Rapport financier 2023",
+        title_en: "Financial Report 2023",
+        paragraphe_fr: "Ce rapport présente les résultats financiers de la RIAFCO pour l'année 2023.",
+        paragraphe_en: "This report presents the financial results of RIAFCO for the year 2023.",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: {
+          connect: { id: adminUser.id },
+        },
       },
     }),
   ])
@@ -669,86 +699,7 @@ const memberCountries = await Promise.all([
     },
   })
 
-  // Create themes and discussions
-  const themes = await Promise.all([
-    prisma.theme.create({
-      data: {
-        title: "Droit des affaires internationales",
-        slug: "droit-affaires-internationales",
-        description: "Discussions sur le droit des affaires à l'international",
-        isPublic: true,
-        createdById: adminUser.id,
-      },
-    }),
-    prisma.theme.create({
-      data: {
-        title: "Éthique et déontologie",
-        slug: "ethique-deontologie",
-        description: "Échanges sur l'éthique professionnelle et la déontologie",
-        isPublic: true,
-        createdById: moderatorUser.id,
-      },
-    }),
-  ])
-
-  const discussions = await Promise.all([
-    prisma.discussion.create({
-      data: {
-        content: "Quelles sont les meilleures pratiques en matière de contrats internationaux ?",
-        themeId: themes[0].id,
-        createdById: memberUser.id,
-      },
-    }),
-    prisma.discussion.create({
-      data: {
-        content: "Comment gérer les conflits d'intérêts dans la pratique juridique ?",
-        themeId: themes[1].id,
-        createdById: adminUser.id,
-      },
-    }),
-  ])
-
-  // Create comments
-  const comments = await Promise.all([
-    prisma.comment.create({
-      data: {
-        content: "Il est essentiel de bien définir les clauses de résolution des conflits.",
-        discussionId: discussions[0].id,
-        createdById: adminUser.id,
-      },
-    }),
-    prisma.comment.create({
-      data: {
-        content: "La transparence est la clé pour éviter les conflits d'intérêts.",
-        discussionId: discussions[1].id,
-        createdById: moderatorUser.id,
-      },
-    }),
-  ])
-
-  // Create invitations
-  const invitations = await Promise.all([
-    prisma.invitation.create({
-      data: {
-        fullName: "Antoine Rousseau",
-        email: "antoine.rousseau@example.com",
-        phone: "+33123456789",
-        status: "PENDING",
-        token: "invitation-token-123",
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        invitedById: adminUser.id,
-      },
-    }),
-    prisma.invitation.create({
-      data: {
-        fullName: "Isabelle Moreau",
-        email: "isabelle.moreau@example.com",
-        status: "ACCEPTED",
-        invitedById: moderatorUser.id,
-      },
-    }),
-  ])
-
+  
   // Create audit logs
   const auditLogs = await Promise.all([
     prisma.auditLog.create({
@@ -796,10 +747,6 @@ const memberCountries = await Promise.all([
   - ${teamMembers.length} team members
   - ${governanceReports.length} governance reports
   - 1 site settings
-  - ${themes.length} themes
-  - ${discussions.length} discussions
-  - ${comments.length} comments
-  - ${invitations.length} invitations
   - ${auditLogs.length} audit logs`)
 }
 

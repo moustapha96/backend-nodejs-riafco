@@ -191,4 +191,21 @@ router.put(
  */
 router.delete("/:id", requireAuth, requireRole(["ADMIN"]), contactController.deleteContact)
 
+
+// update status
+
+router.patch(
+  "/:id/status",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR"]),
+  contactController.updateContactStatus,
+)
+
+router.put(
+  "/:id/respond",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR", "MEMBER"]),
+  contactController.respondContact,
+)
+
 module.exports = router

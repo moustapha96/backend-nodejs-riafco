@@ -91,7 +91,36 @@ async function getAuditLogs({ userId, action, resource, startDate, endDate, page
   }
 }
 
+
+async function getAllAuditLogs() {
+  try {
+    
+    const logs = await Promise.all([
+      prisma.auditLog.findMany({
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    ])
+
+    return logs
+    
+  } catch (error) {
+    console.error("Failed to get audit logs:", error)
+    throw error
+  }
+}
+
 module.exports = {
   createAuditLog,
   getAuditLogs,
+  getAllAuditLogs
 }

@@ -204,5 +204,10 @@ Pour toute question ou support, contactez l'équipe RIAFCO à contact@riafco.org
 Poussez la base de données
 
 npx prisma db push
-prisma db push --force-reset
+npx prisma db push --force-reset
 npx prisma generate       
+
+
+
+lien de desacbonnement sur la partie web
+<a href="${process.env.FRONTEND_URL}/news/${newsletter.id}/unsubscribe?email=${subscriber.email}">Unsubscribe</a>

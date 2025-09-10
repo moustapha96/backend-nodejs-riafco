@@ -136,6 +136,7 @@ router.get("/:id", resourceController.getResource);
  */
 router.get("/:id/download", resourceController.downloadResource);
 
+
 /**
  * @swagger
  * /api/resources:
@@ -168,7 +169,11 @@ router.get("/:id/download", resourceController.downloadResource);
  *       201:
  *         description: Resource created
  */
-router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single("file"), resourceController.createResource);
+router.post("/",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR"]),
+  upload.single("file"),
+  resourceController.createResource);
 
 /**
  * @swagger
@@ -209,7 +214,11 @@ router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single
  *       200:
  *         description: Resource updated
  */
-router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.single("file"), resourceController.updateResource);
+router.put("/:id",
+  requireAuth,
+  requireRole(["ADMIN", "MODERATOR"]),
+  upload.single("file"),
+  resourceController.updateResource);
 
 /**
  * @swagger
@@ -230,7 +239,7 @@ router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), upload.sing
  *       200:
  *         description: Resource deleted
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), resourceController.deleteResource);
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), resourceController.deleteResource);
 
 /**
  * @swagger

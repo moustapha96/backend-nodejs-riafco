@@ -2,7 +2,7 @@ const { PrismaClient } = require("@prisma/client");
 const { validationResult } = require("express-validator");
 const fs = require("fs");
 const path = require("path");
-const { logAudit } = require("../utils/audit");
+const { logAudit, createAuditLog } = require("../utils/audit");
 const prisma = new PrismaClient();
 
 // 1. Récupérer toutes les ressources (avec pagination et filtres)
@@ -89,14 +89,15 @@ const downloadResource = async (req, res) => {
         message: "Resource or file not found",
       });
     }
-    const filePath = path.join(__dirname, "../../", resource.filePath);
+    const filePath = path.join(process.cwd(), resource.filePath);
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: "File not found",
-      });
+      return res.status(404).json({ success: false, message: "File not found" });
     }
-    res.download(filePath, resource.fileName);
+    res.setHeader("Content-Type", resource.fileType || "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${resource.fileName}"`);
+    res.sendFile(filePath);
+
+
   } catch (error) {
     console.error("Download resource error:", error);
     res.status(500).json({
@@ -118,7 +119,7 @@ const createResource = async (req, res) => {
         errors: errors.array(),
       });
     }
-    const { title, description, categoryId, tags } = req.body;
+    const { title, description, categoryId, isPublic, tags } = req.body;
     const file = req.file;
     if (!file) {
       return res.status(400).json({
@@ -126,19 +127,56 @@ const createResource = async (req, res) => {
         message: "No file uploaded",
       });
     }
+
+    let nameFile = null;
+    if (file) {
+      nameFile = req.file.filename ? `/resources/${req.file.filename}` : null;
+    }
+    const filePath = file.path.replace(process.cwd(), "").replace(/\\/g, "/");
+   
     const resource = await prisma.resource.create({
       data: {
         title,
         description,
-        filePath: file.path.replace(/\\/g, "/"),
-        fileName: file.originalname,
+        filePath, // Chemin relatif
+        fileName: nameFile,
         fileType: file.mimetype,
         fileSize: file.size,
         categoryId,
-        tags: tags || [],
+        authorId: res.locals.user.id,
+        isPublic: Boolean(isPublic) ?? true,
+        tags: typeof tags === 'string' ? JSON.parse(tags) : tags,
+        url: `/resources${filePath.replace("uploads", "")}`,
       },
     });
-    await logAudit(req.user.id, "CREATE", "Resource", resource.id, { title }, req.ip, req.get("User-Agent"));
+
+    // const resource = await prisma.resource.create({
+    //   data: {
+    //     title,
+    //     description,
+    //     filePath: file.path.replace(/\\/g, "/"),
+    //     fileName: file.originalname,
+    //     fileType: file.mimetype,
+    //     fileSize: file.size,
+    //     categoryId,
+    //     authorId: res.locals.user.id,
+    //     isPublic: Boolean(isPublic) ?? true,
+    //     tags: typeof tags === 'string' ? JSON.parse(tags) : tags,
+    //     url
+    //   },
+    // });
+
+    await createAuditLog({
+      userId: res.locals.user.id,
+      action: "CREATE",
+      resource: "Resource",
+      resourceId: resource.id,
+      data: { title },
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
+
+
     res.status(201).json({
       success: true,
       message: "Resource created successfully",
@@ -147,7 +185,7 @@ const createResource = async (req, res) => {
   } catch (error) {
     console.error("Create resource error:", error);
     if (req.file) {
-      const filePath = path.join(__dirname, "../../", req.file.path);
+      const filePath = path.join(__dirname, "uploads/resources", req.file.path);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     res.status(500).json({
@@ -170,37 +208,59 @@ const updateResource = async (req, res) => {
       });
     }
     const { id } = req.params;
-    const { title, description, categoryId, tags } = req.body;
+    const { title, description, categoryId, tags, isPublic } = req.body;
     const file = req.file;
     const existingResource = await prisma.resource.findUnique({ where: { id } });
     if (!existingResource) {
+      console.error(existingResource);
       return res.status(404).json({
         success: false,
         message: "Resource not found",
       });
     }
+    let publis_id = Boolean(isPublic) ?? existingResource.isPublic;
     const updateData = {
       title,
       description,
       categoryId,
-      tags: tags || [],
+      isPublic: publis_id,
+      tags: typeof tags === 'string' ? JSON.parse(tags) : tags,
     };
-    // Gestion du fichier
+
+    let nameFile = existingResource.fileName;
+    
     if (file) {
+      
+      nameFile = req.file.filename ? `/resources/${req.file.filename}` : existingResource.fileName;
       if (existingResource.filePath) {
-        const oldFilePath = path.join(__dirname, "../../", existingResource.filePath);
+        const oldFilePath = path.join(process.cwd(), existingResource.filePath);
         if (fs.existsSync(oldFilePath)) fs.unlinkSync(oldFilePath);
       }
-      updateData.filePath = file.path.replace(/\\/g, "/");
-      updateData.fileName = file.originalname;
+      const newFilePath = file.path.replace(process.cwd(), "").replace(/\\/g, "/"); // Chemin relatif
+      updateData.filePath = newFilePath;
+      updateData.fileName = nameFile;
       updateData.fileType = file.mimetype;
       updateData.fileSize = file.size;
+      updateData.url = `/resources${newFilePath.replace("uploads", "")}`;
     }
+
+
+
     const resource = await prisma.resource.update({
       where: { id },
       data: updateData,
     });
-    await logAudit(req.user.id, "UPDATE", "Resource", resource.id, updateData, req.ip, req.get("User-Agent"));
+
+    await createAuditLog({
+      userId: res.locals.user.id,
+      action: "UPDATE",
+      resource: "Resource",
+      resourceId: resource.id,
+      data: updateData,
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
+
     res.json({
       success: true,
       message: "Resource updated successfully",
@@ -237,11 +297,23 @@ const deleteResource = async (req, res) => {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     await prisma.resource.delete({ where: { id } });
-    await logAudit(req.user.id, "DELETE", "Resource", id, { title: resource.title }, req.ip, req.get("User-Agent"));
+ 
+     await createAuditLog({
+      userId: res.locals.user.id,
+      action: "DELETE",
+      resource: "Resource",
+      resourceId: id,
+      data:  { title: resource.title },
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
+
+
     res.json({
       success: true,
       message: "Resource deleted successfully",
     });
+     
   } catch (error) {
     console.error("Delete resource error:", error);
     res.status(500).json({
@@ -271,6 +343,36 @@ const getAllCategories = async (req, res) => {
 };
 
 // 8. Créer une nouvelle catégorie
+// const createCategory = async (req, res) => {
+//   try {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Validation failed",
+//         errors: errors.array(),
+//       });
+//     }
+//     const { name, description } = req.body;
+//     const category = await prisma.resourceCategory.create({
+//       data: { name, description },
+//     });
+
+//     await logAudit(req.user.id, "CREATE", "Category", category.id, { name }, req.ip, req.get("User-Agent"));
+//     res.status(201).json({
+//       success: true,
+//       message: "Category created successfully",
+//       data: category,
+//     });
+//   } catch (error) {
+//     console.error("Create category error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error creating category",
+//       error: error.message,
+//     });
+//   }
+// };
 const createCategory = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -281,11 +383,34 @@ const createCategory = async (req, res) => {
         errors: errors.array(),
       });
     }
+
     const { name, description } = req.body;
+
+    // Vérifie si une catégorie avec ce nom existe déjà
+    const existingCategory = await prisma.resourceCategory.findUnique({
+      where: { name },
+    });
+
+    if (existingCategory) {
+      return res.status(409).json({
+        success: false,
+        message: "A category with this name already exists",
+      });
+    }
+
+    // Si elle n'existe pas, crée-la
     const category = await prisma.resourceCategory.create({
       data: { name, description },
     });
-    await logAudit(req.user.id, "CREATE", "Category", category.id, { name }, req.ip, req.get("User-Agent"));
+
+    await createAuditLog({
+      action: "CREATE",
+      resource: "Category",
+      details: { name, description },
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
+
     res.status(201).json({
       success: true,
       message: "Category created successfully",
@@ -300,6 +425,7 @@ const createCategory = async (req, res) => {
     });
   }
 };
+
 
 // 9. Mettre à jour une catégorie
 const updateCategory = async (req, res) => {
@@ -318,7 +444,16 @@ const updateCategory = async (req, res) => {
       where: { id },
       data: { name, description },
     });
-    await logAudit(req.user.id, "UPDATE", "Category", category.id, { name, description }, req.ip, req.get("User-Agent"));
+
+
+    await createAuditLog({
+      action: "UPDATE",
+      resource: "Category" + category.id,
+      details: { name, description },
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
+
     res.json({
       success: true,
       message: "Category updated successfully",
@@ -346,7 +481,16 @@ const deleteCategory = async (req, res) => {
       });
     }
     await prisma.resourceCategory.delete({ where: { id } });
-    await logAudit(req.user.id, "DELETE", "Category", id, { name: category.name }, req.ip, req.get("User-Agent"));
+
+    await createAuditLog({
+      action: "DELETE",
+      resource: "Category" + category.id,
+      details: { name: category.name, description: category.description },
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
+
+
     res.json({
       success: true,
       message: "Category deleted successfully",
@@ -360,6 +504,7 @@ const deleteCategory = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   getAllResources,

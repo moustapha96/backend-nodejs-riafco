@@ -67,7 +67,7 @@ const updateUserValidation = [
   body("lastName").optional().trim().isLength({ min: 2, max: 50 }).withMessage("Le nom doit contenir entre 2 et 50 caractères"),
   body("role").optional().isIn(["ADMIN", "MODERATOR", "MEMBER"]).withMessage("Rôle invalide"),
   body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Statut invalide"),
-  body("phone").optional().isMobilePhone().withMessage("Numéro de téléphone invalide"),
+  // body("phone").optional().isMobilePhone().withMessage("Numéro de téléphone invalide"),
   body("permissions").optional().isArray().withMessage("Les permissions doivent être un tableau"),
   body("permissions.*").optional().isIn([
     "GERER_ACTIVITES",
@@ -183,7 +183,8 @@ router.get("/:id", requireAuth, userController.getUserById);
 router.post(
   "/",
   requireAuth,
-  // requirePermission("GERER_UTILISATEURS"),
+  requirePermission("GERER_UTILISATEURS"),
+  requireRole(["ADMIN"]), 
   upload.single("profilePic"),
   createUserValidation,
   userController.createUser
@@ -238,20 +239,13 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  // (req, res, next) => {
-  //   // Vérifie si l'utilisateur est un admin ou s'il modifie son propre profil
-  //   if (req.params.id !== res.locals.user.id && !res.locals.user.permissions.some(p => p.name === "GERER_UTILISATEURS")) {
-  //     return res.status(403).json({
-  //       message: "Permission refusée. Vous ne pouvez modifier que votre propre profil.",
-  //       code: "PERMISSION_REFUSEE",
-  //     });
-  //   }
-  //   next();
-  // },
   upload.single("profilePic"),
   updateUserValidation,
   userController.updateUser
 );
+// active account
+
+
 
 /**
  * @swagger
@@ -272,7 +266,7 @@ router.put(
  *       200:
  *         description: Utilisateur supprimé
  */
-router.delete("/:id", requireAuth, userController.deleteUser);
+router.delete("/:id", requireAuth,requireRole(["ADMIN"]), userController.deleteUser);
 
 /**
  * @swagger
@@ -294,5 +288,9 @@ router.delete("/:id", requireAuth, userController.deleteUser);
  *         description: Mot de passe réinitialisé
  */
 router.post("/:id/reset-password", requireAuth,  userController.resetUserPassword);
+
+
+
+router.post("/send-mail", userController.sendMailToUser);
 
 module.exports = router;

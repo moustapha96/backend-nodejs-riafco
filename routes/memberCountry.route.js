@@ -3,12 +3,103 @@ const router = require("express").Router();
 const { body } = require("express-validator");
 const memberCountryController = require("../controllers/memberCountry.controller");
 const { requireAuth, requireRole } = require("../middleware/auth.middleware");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Validation rules for MemberCountry
+const createMemberCountryValidation = [
+  body("name").trim().isLength({ min: 2, max: 100 }).withMessage("Name must be between 2 and 100 characters"),
+  body("code").trim().isLength({ min: 2, max: 3 }).withMessage("Code must be between 2 and 3 characters"),
+  body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Invalid status"),
+  body("latitude").optional().isFloat({ min: -90, max: 90 }).withMessage("Latitude must be between -90 and 90"),
+  body("longitude").optional().isFloat({ min: -180, max: 180 }).withMessage("Longitude must be between -180 and 180"),
+];
+
+// Validation rules for CritereMemberCountry
+const createCriterionValidation = [
+  body("name").trim().isLength({ min: 2, max: 200 }).withMessage("Name must be between 2 and 200 characters"),
+  body("description").optional().trim().isLength({ max: 1000 }).withMessage("Description must be less than 1000 characters"),
+];
+
+
+// Ensure upload directory exists
+const uploadDir = "uploads/flags"
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
+
+// Configure multer for partner logo uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir)
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
+    cb(null, "flag-" + uniqueSuffix + path.extname(file.originalname))
+  },
+})
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limite à 5 Mo
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Seuls les fichiers image sont autorisés (JPEG, JPG, PNG, GIF, WEBP, SVG)"));
+    }
+  },
+});
+
+
+
 
 /**
  * @swagger
  * tags:
  *   name: MemberCountry
  *   description: Member country management
+ */
+
+/**
+ * @swagger
+ * /api/member-countries/upload-flag:
+ *   post:
+ *     summary: Upload a flag image for a member country (Admin only)
+ *     tags: [MemberCountry]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               flag:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Flag uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url:
+ *                   type: string
+ *                   description: URL of the uploaded flag
+ *       400:
+ *         description: No file uploaded or invalid file type
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
 
 /**
@@ -32,6 +123,8 @@ const { requireAuth, requireRole } = require("../middleware/auth.middleware");
  *         longitude:
  *           type: number
  *           format: float
+ *         description:
+ *           type: string
  *         status:
  *           type: string
  *           enum: [ACTIVE, INACTIVE]
@@ -58,20 +151,7 @@ const { requireAuth, requireRole } = require("../middleware/auth.middleware");
  *           format: date-time
  */
 
-// Validation rules for MemberCountry
-const createMemberCountryValidation = [
-  body("name").trim().isLength({ min: 2, max: 100 }).withMessage("Name must be between 2 and 100 characters"),
-  body("code").trim().isLength({ min: 2, max: 3 }).withMessage("Code must be between 2 and 3 characters"),
-  body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Invalid status"),
-  body("latitude").optional().isFloat({ min: -90, max: 90 }).withMessage("Latitude must be between -90 and 90"),
-  body("longitude").optional().isFloat({ min: -180, max: 180 }).withMessage("Longitude must be between -180 and 180"),
-];
 
-// Validation rules for CritereMemberCountry
-const createCriterionValidation = [
-  body("name").trim().isLength({ min: 2, max: 200 }).withMessage("Name must be between 2 and 200 characters"),
-  body("description").optional().trim().isLength({ max: 1000 }).withMessage("Description must be less than 1000 characters"),
-];
 
 /**
  * @swagger
@@ -127,6 +207,7 @@ const createCriterionValidation = [
  */
 router.get("/", memberCountryController.getAllMemberCountries);
 
+router.get("/all", memberCountryController.getAllMemberCountriesOff);
 
 /**
  * @swagger
@@ -203,7 +284,7 @@ router.get("/:id", memberCountryController.getMemberCountryById);
 router.post(
   "/",
   requireAuth,
-  
+  upload.single("flag"),
   createMemberCountryValidation,
   memberCountryController.createMemberCountry,
 );
@@ -242,6 +323,8 @@ router.post(
  *               longitude:
  *                 type: number
  *                 format: float
+ *               description:
+ *                   type: string
  *               status:
  *                 type: string
  *                 enum: [ACTIVE, INACTIVE]
@@ -264,7 +347,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  
+  upload.single("flag"),
   createMemberCountryValidation,
   memberCountryController.updateMemberCountry,
 );
@@ -294,7 +377,7 @@ router.put(
  *       404:
  *         description: Member country not found
  */
-router.delete("/:id", requireAuth,  memberCountryController.deleteMemberCountry);
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), memberCountryController.deleteMemberCountry);
 
 /**
  * @swagger
@@ -327,6 +410,7 @@ router.delete("/:id", requireAuth,  memberCountryController.deleteMemberCountry)
  *         description: Failed to retrieve criteria
  */
 router.get("/:countryId/criteria", memberCountryController.getAllCriteriaForCountry);
+
 
 /**
  * @swagger
@@ -429,7 +513,6 @@ router.post(
 router.put(
   "/criteria/:criterionId",
   requireAuth,
-  
   createCriterionValidation,
   memberCountryController.updateCriterion,
 );
@@ -461,6 +544,6 @@ router.put(
  *       500:
  *         description: Failed to delete criterion
  */
-router.delete("/criteria/:criterionId", requireAuth,  memberCountryController.deleteCriterion);
+router.delete("/criteria/:criterionId", requireAuth,requireRole(["ADMIN"]),  memberCountryController.deleteCriterion);
 
 module.exports = router;

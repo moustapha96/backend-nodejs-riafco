@@ -1,9 +1,43 @@
 const router = require("express").Router()
 const activityController = require("../controllers/activity.controller")
-const { requireAuth } = require("../middleware/auth.middleware")
+const { requireAuth, requireRole } = require("../middleware/auth.middleware")
 const multer = require("multer")
+const path = require("path")
+const fs = require("fs")
 
-const upload = multer({ dest: "./uploads/activities/" })
+
+const uploadDir = "uploads/activities"
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
+
+// Configure multer for partner logo uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir)
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
+    cb(null, "activite-" + uniqueSuffix + path.extname(file.originalname))
+  },
+})
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limite à 5 Mo
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Seuls les fichiers image sont autorisés (JPEG, JPG, PNG, GIF, WEBP, SVG)"));
+    }
+  },
+});
+
+
 
 /**
  * @swagger
@@ -177,9 +211,12 @@ router.put(
  *       404:
  *         description: Activity not found
  */
-router.delete("/:id", requireAuth, activityController.deleteActivity)
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]),activityController.deleteActivity)
 
 
 router.patch("/:id/status", requireAuth, activityController.updateActivityStatus)
+
+
+router.get("/similaires", activityController.getAllActivitiesSimilaire)
 
 module.exports = router
