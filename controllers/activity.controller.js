@@ -370,7 +370,7 @@ module.exports.updateActivityStatus = async (req, res) => {
 // Dans votre contrôleur
 module.exports.getAllActivitiesSimilaire = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, search,activiteId, authorId, sortBy = "createdAt", sortOrder = "desc" } = req.query;
+    const { page = 1, limit = 10, status, search, activiteId, authorId, sortBy = "createdAt", sortOrder = "desc" } = req.query;
     const skip = (page - 1) * limit;
     const take = Number.parseInt(limit);
     const where = {};
