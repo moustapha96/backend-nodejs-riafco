@@ -186,7 +186,7 @@ router.get("/:id", socialFeedController.getSocialFeedById);
 router.post(
   "/",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   createSocialFeedValidation,
   socialFeedController.createSocialFeed,
 );
@@ -242,7 +242,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   updateSocialFeedValidation,
   socialFeedController.updateSocialFeed,
 );

@@ -1,8 +1,8 @@
 const { PrismaClient } = require("@prisma/client")
 const { validationResult } = require("express-validator")
 const { logAudit, createAuditLog } = require("../utils/audit")
-const { sendEmail, sendResponseEmail } = require("../services/email.service")
 
+const emailService = require("../services/email.service")
 const prisma = new PrismaClient()
 
 // Get all contacts with pagination and filtering
@@ -150,7 +150,7 @@ const updateContact = async (req, res) => {
     // Send response email if provided
     if (response && status === "RESOLVED") {
       try {
-        await sendEmail({
+        await emailService.sendEmail({
           to: contact.email,
           subject: `Re: ${contact.subject}`,
           html: `
@@ -166,7 +166,16 @@ const updateContact = async (req, res) => {
       }
     }
 
-    await logAudit(req.user.id, "UPDATE", "Contact", id, updateData, req.ip, req.get("User-Agent"))
+      await createAuditLog({
+      userId: res.locals.user.id,
+      action: "UPDATE",
+      resource: "Contact",
+      resourceId: updateData.id,
+      details: updateData,
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+      });
+    
 
     res.json({
       success: true,
@@ -222,8 +231,10 @@ const updateContactStatus = async (req, res) => {
       userId: res.locals.user.id,
       action: "UPDATE",
       resource: "Contact",
-      resourceId: updateData.id,
-      details: updateData,
+      resourceId: updatedContact.id,
+      details: {
+        status: updatedContact.status,
+      },
       ipAddress: req.ip,
       userAgent: req.get("User-Agent"),
      });
@@ -279,70 +290,6 @@ const deleteContact = async (req, res) => {
   }
 }
 
-// const respondContact = async (req, res) => {
-//   try {
-//     const { id } = req.params
-//     const { message } = req.body
-
-//     const contact = await prisma.contact.findUnique({
-//       where: { id },
-//     })
-
-//     if (!contact) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Contact not found",
-//       })
-//     }
-
-//     const updateData = await prisma.contact.update({
-//       where: { id },
-//       data: {
-//         respondedBy: res.locals.user.id,
-//         respondedAt: new Date(),
-//         response: message,
-//         status : "RESOLVED"
-//       },
-//     })
-
-//     if (updateData ) {
-//       try {
-//        await sendResponseEmail({
-//         to: contact.email,
-//         name: contact.name,
-//         subject: `Re: ${contact.subject}`,
-//         message: message
-//        })
-//       } catch (emailError) {
-//         console.error("Failed to send response email:", emailError)
-//       }
-//     }
-
-//       await createAuditLog({
-//         userId: res.locals.user.id,
-//         action: "RESPOND_CONTACT",
-//         resource: "Contact",
-//         resourceId: updateData.id,
-//         details: updateData,
-//         ipAddress: req.ip,
-//         userAgent: req.get("User-Agent"),
-//       });
-    
-//     res.json({
-//       success: true,
-//       message: "Contact responded successfully",
-//     })
-//   } catch (error) {
-//     console.error("Respond contact error:", error)
-//     res.status(500).json({
-//       success: false,
-//       message: "Error responding to contact",
-//       error: error.message,
-//     })
-
-//   }
-// }
-
 const respondContact = async (req, res) => {
   try {
     const { id } = req.params;
@@ -374,7 +321,7 @@ const respondContact = async (req, res) => {
     // Envoyer l'email avec gestion du loader
     if (updateData) {
       try {
-        await sendResponseEmail({
+        await emailService.sendResponseEmail({
           to: contact.email,
           name: contact.name,
           subject: `Re: ${contact.subject}`,
@@ -391,7 +338,7 @@ const respondContact = async (req, res) => {
       action: "RESPOND_CONTACT",
       resource: "Contact",
       resourceId: updateData.id,
-      details: updateData,
+      details: { status: "RESOLVED" },
       ipAddress: req.ip,
       userAgent: req.get("User-Agent"),
     });

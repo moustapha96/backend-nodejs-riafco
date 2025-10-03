@@ -8,7 +8,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 // Constantes
-const maxAge = process.env.JWT_EXPIRES_IN || "7d";
+const maxAge = process.env.JWT_EXPIRES_IN || "1d";
 const saltRounds = Number.parseInt(process.env.BCRYPT_ROUNDS) || 12;
 
 // Fonction utilitaire pour créer un token JWT
@@ -27,7 +27,7 @@ module.exports.register = async (req, res) => {
       return res.status(400).json({ message: "Erreurs de validation", errors: errors.array() });
     }
 
-    const { firstName, lastName, email, password, role = "MEMBER" } = req.body;
+    const { firstName, lastName, email, password, role = "GUEST" } = req.body;
 
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
@@ -162,7 +162,7 @@ module.exports.login = async (req, res) => {
     const token = createToken(user.id);
     const cookieOptions = {
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 1 * 24 * 60 * 60 * 1000,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
     };
@@ -597,3 +597,68 @@ module.exports.resendActivationLink = async (req, res) => {
     res.status(500).json({ message: "Erreur lors du renvoi du lien d’activation." });
   }
 }
+
+
+
+module.exports.refreshToken = async (req, res) => {
+  try {
+    // Nécessite cookie-parser dans votre app Express
+    const cookieToken = req.cookies?.jwt;
+    if (!cookieToken) {
+      return res.status(401).json({ message: "No session", code: "NO_SESSION" });
+    }
+
+    // Vérifier le token existant (même secret que createToken)
+    const decoded = jwt.verify(cookieToken, process.env.TOKEN_SECRET);
+
+    // Retrouver l'utilisateur et valider son statut
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { permissions: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found", code: "USER_NOT_FOUND" });
+    }
+    if (user.status !== "ACTIVE") {
+      return res.status(403).json({ message: "Compte inactif", code: "ACCOUNT_INACTIVE" });
+    }
+     if (user.archived) {
+      return res.status(403).json({ message: "Compte Supprimé", code: "ACCOUNT_ARCHIVED" });
+    }
+
+    // Réémettre un nouveau token "accès" (ici même durée que maxAge existant)
+    const newToken = createToken(user.id);
+
+    // Recoller le cookie httpOnly
+    const cookieOptions = {
+      httpOnly: true,
+      maxAge: 1 * 24 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    };
+    res.cookie("jwt", newToken, cookieOptions);
+
+    // Retourner aussi le token côté client pour stockage (si vous le gardez côté web)
+    return res.status(200).json({
+      message: "Token refreshed",
+      token: newToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        status: user.status,
+        profilePic: user.profilePic,
+        phone: user.phone,
+        lastLogin: user.lastLogin,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        permissions: user.permissions,
+      },
+    });
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid session", code: "INVALID_SESSION" });
+  }
+};

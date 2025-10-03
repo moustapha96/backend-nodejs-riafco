@@ -53,7 +53,7 @@ const registerValidation = [
     .withMessage("Password must contain at least one lowercase letter, one uppercase letter, and one number"),
   body("firstName").trim().isLength({ min: 2, max: 50 }).withMessage("First name must be between 2 and 50 characters"),
   body("lastName").trim().isLength({ min: 2, max: 50 }).withMessage("Last name must be between 2 and 50 characters"),
-  body("role").optional().isIn(["ADMIN", "MODERATOR", "MEMBER", "GUEST"]).withMessage("Invalid role"),
+  body("role").optional().isIn(["ADMIN","MEMBER","GUEST"]).withMessage("Invalid role"),
 ]
 
 const loginValidation = [
@@ -104,7 +104,7 @@ const changePasswordValidation = [
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [ADMIN, MODERATOR, MEMBER, GUEST]
+ *                 enum: [ADMIN, MEMBER, GUEST]
  *               profilePic:
  *                 type: string
  *                 format: binary
@@ -310,5 +310,8 @@ router.post(
  *         description: Logout successful
  */
 router.post("/logout", requireAuth, authController.logout)
+
+router.post("/refresh", authController.refreshToken);
+
 
 module.exports = router

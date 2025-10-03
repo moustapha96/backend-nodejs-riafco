@@ -159,7 +159,7 @@ router.get("/:id", eventController.getEvent)
 router.post(
   "/",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   upload.single("image"),
   createEventValidation,
   eventController.createEvent,
@@ -214,7 +214,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   upload.single("image"),
   updateEventValidation,
   eventController.updateEvent,

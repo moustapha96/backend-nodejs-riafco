@@ -91,7 +91,7 @@ npm start
 
 ### Rôles et Permissions
 - **ADMIN** - Accès complet à toutes les fonctionnalités
-- **MODERATOR** - Gestion des contenus (actualités, événements, ressources)
+- **SUPER_ADMIN** - Gestion des contenus Super admin
 - **MEMBER** - Accès limité (profil, participation aux discussions)
 - **GUEST** - Lecture seule
 

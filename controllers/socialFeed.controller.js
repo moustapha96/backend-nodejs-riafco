@@ -79,7 +79,7 @@ module.exports.getSocialFeedById = async (req, res) => {
 /**
  * @desc Create a new social feed
  * @route POST /api/social-feeds
- * @access Private (ADMIN, MODERATOR)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 module.exports.createSocialFeed = async (req, res) => {
   try {
@@ -149,7 +149,7 @@ module.exports.createSocialFeed = async (req, res) => {
 /**
  * @desc Update a social feed
  * @route PUT /api/social-feeds/:id
- * @access Private (ADMIN, MODERATOR)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 module.exports.updateSocialFeed = async (req, res) => {
   try {

@@ -48,7 +48,7 @@ const updateSiteSettings = async (req, res) => {
       });
     }
 
-    const { siteName, contactEmail, urlSite , socialMedia,
+    const { siteName, contactEmail, urlSite, socialMedia,
       footer, contactPhone, contactMobile, contactAddress } = req.body;
     const logo = req.files?.logo?.[0];
     const favicon = req.files?.favicon?.[0];
@@ -87,30 +87,20 @@ const updateSiteSettings = async (req, res) => {
       updateData.socialMedia = settings.socialMedia;
     }
 
-    // Gestion du logo
     if (logo) {
-      if (settings.logo) {
-        const oldLogoPath = path.join(__dirname, "../../", settings.logo);
-        if (fs.existsSync(oldLogoPath)) fs.unlinkSync(oldLogoPath);
-      }
-      updateData.logo = logo.path.replace(/\\/g, "/");
+      updateData.logo = `/settings/${logo.filename}`
+    }
+    if (favicon) {
+      updateData.favicon = `/settings/${favicon.filename}`
     }
 
-    // Gestion du favicon
-    if (favicon) {
-      if (settings.favicon) {
-        const oldFaviconPath = path.join(__dirname, "../../", settings.favicon);
-        if (fs.existsSync(oldFaviconPath)) fs.unlinkSync(oldFaviconPath);
-      }
-      updateData.favicon = favicon.path.replace(/\\/g, "/");
-    }
 
     const updatedSettings = await prisma.siteSettings.update({
       where: { id: settings.id },
       data: updateData,
     });
 
-     await createAuditLog({
+    await createAuditLog({
       userId: res.locals.user.id,
       action: "UPDATE_SETTINGS",
       resource: "SiteSettings",
@@ -118,9 +108,9 @@ const updateSiteSettings = async (req, res) => {
       details: updateData,
       ipAddress: req.ip,
       userAgent: req.get("User-Agent"),
-     });
-    
-    
+    });
+
+
     res.json({
       success: true,
       message: "Site settings updated successfully",
@@ -151,7 +141,7 @@ const getAuditLogs = async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
     const skip = (Number(page) - 1) * Number(limit);
 
-     const [audits, total] = await Promise.all([
+    const [audits, total] = await Promise.all([
       prisma.auditLog.findMany({
         skip,
         take: Number(limit),
@@ -164,12 +154,13 @@ const getAuditLogs = async (req, res) => {
               lastName: true,
               email: true,
             },
-        } },
+          }
+        },
       }),
       prisma.auditLog.count(), // Compte total des éléments
     ]);
-    
-   res.json({
+
+    res.json({
       success: true,
       data: audits,
       pagination: {
@@ -180,7 +171,7 @@ const getAuditLogs = async (req, res) => {
       },
     });
 
-    } catch (error) {
+  } catch (error) {
     console.error("Get audit log error:", error);
     res.status(500).json({
       success: false,

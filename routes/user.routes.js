@@ -39,15 +39,78 @@ const upload = multer({
     }
   },
 })
-
+const africanCountryCodes = {
+  "213": 9,   // Algérie
+  "244": 9,   // Angola
+  "229": 8,   // Bénin
+  "267": 8,   // Botswana
+  "226": 8,   // Burkina Faso
+  "257": 8,   // Burundi
+  "237": 9,   // Cameroun
+  "238": 7,   // Cap-Vert
+  "236": 8,   // République centrafricaine
+  "235": 8,   // Tchad
+  "269": 7,   // Comores
+  "242": 9,   // Congo (République du)
+  "225": 8,   // Côte d'Ivoire
+  "253": 8,   // Djibouti
+  "20": 10,   // Égypte
+  "291": 7,   // Érythrée
+  "268": 8,   // Eswatini (Swaziland)
+  "251": 9,   // Éthiopie
+  "241": 8,   // Gabon
+  "220": 7,   // Gambie
+  "233": 9,   // Ghana
+  "224": 9,   // Guinée
+  "245": 7,   // Guinée-Bissau
+  "240": 9,   // Guinée équatoriale
+  "254": 9,   // Kenya
+  "266": 8,   // Lesotho
+  "231": 8,   // Liberia
+  "218": 9,   // Libye
+  "261": 9,   // Madagascar
+  "265": 9,   // Malawi
+  "223": 8,   // Mali
+  "212": 9,   // Maroc
+  "230": 8,   // Maurice
+  "222": 8,   // Mauritanie
+  "258": 9,   // Mozambique
+  "264": 9,   // Namibie
+  "227": 8,   // Niger
+  "234": 10,  // Nigeria
+  "256": 9,   // Ouganda
+  "250": 9,   // Rwanda
+  "239": 7,   // Sao Tomé-et-Principe
+  "221": 9,   // Sénégal
+  "248": 7,   // Seychelles
+  "232": 8,   // Sierra Leone
+  "252": 8,   // Somalie
+  "27": 9,    // Afrique du Sud
+  "249": 9,   // Soudan
+  "211": 9,   // Soudan du Sud
+  "255": 9,   // Tanzanie
+  "228": 8,   // Togo
+  "216": 8,   // Tunisie
+  "260": 9,   // Zambie
+  "263": 9,   // Zimbabwe
+};
 
 const createUserValidation = [
   body("email").isEmail().normalizeEmail().withMessage("Veuillez fournir un email valide"),
   body("firstName").trim().isLength({ min: 2, max: 50 }).withMessage("Le prénom doit contenir entre 2 et 50 caractères"),
   body("lastName").trim().isLength({ min: 2, max: 50 }).withMessage("Le nom doit contenir entre 2 et 50 caractères"),
-  body("role").optional().isIn(["ADMIN", "MODERATOR", "MEMBER"]).withMessage("Rôle invalide"),
+  body("role").optional().isIn(["ADMIN", "GUEST", "MEMBER"]).withMessage("Rôle invalide"),
   body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Statut invalide"),
-  body("phone").optional().isMobilePhone().withMessage("Numéro de téléphone invalide"),
+  // body("phone").optional().isMobilePhone().withMessage("Numéro de téléphone invalide"),
+  body("phone")
+  .optional()
+  .custom((value) => {
+    if (!value) return true;
+    const cleanedPhone = value.replace(/[^\d]/g, "");
+    return cleanedPhone.length >= 7 && cleanedPhone.length <= 10;
+  })
+  .withMessage("Le numéro de téléphone doit contenir entre 7 et 10 chiffres (hors indicatif)."),
+
   body("permissions").optional().isArray().withMessage("Les permissions doivent être un tableau"),
   body("permissions.*").optional().isIn([
     "GERER_ACTIVITES",
@@ -65,7 +128,7 @@ const createUserValidation = [
 const updateUserValidation = [
   body("firstName").optional().trim().isLength({ min: 2, max: 50 }).withMessage("Le prénom doit contenir entre 2 et 50 caractères"),
   body("lastName").optional().trim().isLength({ min: 2, max: 50 }).withMessage("Le nom doit contenir entre 2 et 50 caractères"),
-  body("role").optional().isIn(["ADMIN", "MODERATOR", "MEMBER"]).withMessage("Rôle invalide"),
+  body("role").optional().isIn(["ADMIN", "MEMBER","GUEST"]).withMessage("Rôle invalide"),
   body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Statut invalide"),
   // body("phone").optional().isMobilePhone().withMessage("Numéro de téléphone invalide"),
   body("permissions").optional().isArray().withMessage("Les permissions doivent être un tableau"),
@@ -184,7 +247,7 @@ router.post(
   "/",
   requireAuth,
   requirePermission("GERER_UTILISATEURS"),
-  requireRole(["ADMIN"]), 
+  requireRole(["ADMIN", "SUPER_ADMIN"]), 
   upload.single("profilePic"),
   createUserValidation,
   userController.createUser
@@ -239,6 +302,8 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
+  requirePermission("GERER_UTILISATEURS"),
+  requireRole(["ADMIN","SUPER_ADMIN"]), 
   upload.single("profilePic"),
   updateUserValidation,
   userController.updateUser
@@ -266,7 +331,11 @@ router.put(
  *       200:
  *         description: Utilisateur supprimé
  */
-router.delete("/:id", requireAuth,requireRole(["ADMIN"]), userController.deleteUser);
+router.delete("/:id",
+  requireAuth,
+  requireRole(["SUPER_ADMIN"]),
+  userController.deleteUser
+);
 
 /**
  * @swagger
@@ -288,7 +357,6 @@ router.delete("/:id", requireAuth,requireRole(["ADMIN"]), userController.deleteU
  *         description: Mot de passe réinitialisé
  */
 router.post("/:id/reset-password", requireAuth,  userController.resetUserPassword);
-
 
 
 router.post("/send-mail", userController.sendMailToUser);

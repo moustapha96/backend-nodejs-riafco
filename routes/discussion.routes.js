@@ -32,7 +32,7 @@ router.get("/:id/with-comments", discussionController.getDiscussionWithComments)
 router.post(
   "/",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR", "MEMBER"]),
+  requireRole(["ADMIN","SUPER_ADMIN", "MEMBER"]),
   discussionValidationRules,
   discussionController.createDiscussion,
 )
@@ -41,7 +41,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   discussionValidationRules,
   discussionController.updateDiscussion,
 )
@@ -53,7 +53,7 @@ router.delete("/:id", requireAuth, requireRole(["ADMIN"]), discussionController.
 router.post(
   "/:discussionId/comments",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR", "MEMBER"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER", "MEMBER"]),
   body("content").trim().isLength({ min: 2 }).withMessage("Content is required"),
   discussionController.createComment,
 )
@@ -65,16 +65,16 @@ router.get("/:discussionId/comments", discussionController.getDiscussionComments
 router.post(
   "/:id/like",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR", "MEMBER"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER", "MEMBER"]),
   discussionController.toggleLikeDiscussion,
 )
 
 
 // POST /api/discussions/:id/pin - Pin/unpin discussion
-router.post("/:id/pin", requireAuth, requireRole(["ADMIN", "MODERATOR"]), discussionController.togglePinDiscussion)
+router.post("/:id/pin", requireAuth, requireRole(["ADMIN","SUPER_ADMIN", "MEMBER"]), discussionController.togglePinDiscussion)
 
 // POST /api/discussions/:id/close - Close/open discussion
-router.post("/:id/close", requireAuth, requireRole(["ADMIN", "MODERATOR"]), discussionController.toggleCloseDiscussion)
+router.post("/:id/close", requireAuth, requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]), discussionController.toggleCloseDiscussion)
 
 
 
@@ -82,7 +82,7 @@ router.post("/:id/close", requireAuth, requireRole(["ADMIN", "MODERATOR"]), disc
 router.post(
   "/:discussionId/comments/:commentId/reply",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR", "MEMBER"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER", "MEMBER"]),
   discussionController.replyToComment,
 );
 
@@ -92,7 +92,7 @@ router.post(
 router.post(
   "/:discussionId/comments/:commentId/like",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR", "MEMBER"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER", "MEMBER"]),
   discussionController.likeComment,
 );
 

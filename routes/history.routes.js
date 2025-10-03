@@ -122,7 +122,7 @@ router.get("/:id", historyController.getHistoryItem);
 router.post(
   "/",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   historyController.createHistoryItem
 );
 
@@ -162,7 +162,7 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   historyController.updateHistoryItem
 );
 

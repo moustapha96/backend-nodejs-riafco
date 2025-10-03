@@ -180,7 +180,7 @@ router.post(
  *       200:
  *         description: Unsubscribed successfully
  */
-router.post(
+router.get(
   "/unsubscribe/:email",
   newsletterController.unsubscribeFromNewsletter
 );

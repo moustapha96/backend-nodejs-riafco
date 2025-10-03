@@ -11,16 +11,34 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-// Configure multer for partner logo uploads
+// // Configure multer for partner logo uploads
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, uploadDir)
+//   },
+//   filename: (req, file, cb) => {
+//     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
+//     cb(null, "activite-" + uniqueSuffix + path.extname(file.originalname))
+//   },
+// })
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir)
+    if (file.fieldname === "galleries") {
+      const galleryDir = "uploads/activities/galleries";
+      if (!fs.existsSync(galleryDir)) {
+        fs.mkdirSync(galleryDir, { recursive: true });
+      }
+      cb(null, galleryDir);
+    } else {
+      cb(null, "uploads/activities");
+    }
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
-    cb(null, "activite-" + uniqueSuffix + path.extname(file.originalname))
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "activite-" + uniqueSuffix + path.extname(file.originalname));
   },
-})
+});
 
 const upload = multer({
   storage,
@@ -130,6 +148,7 @@ router.post(
   upload.fields([
     { name: "icon", maxCount: 1 },
     { name: "image", maxCount: 1 },
+    { name: "galleries", maxCount: 10 },
   ]),
   activityController.createActivity,
 )
@@ -184,6 +203,7 @@ router.put(
   upload.fields([
     { name: "icon", maxCount: 1 },
     { name: "image", maxCount: 1 },
+    { name: "galleries", maxCount: 10 },
   ]),
   activityController.updateActivity,
 )
@@ -211,7 +231,7 @@ router.put(
  *       404:
  *         description: Activity not found
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN"]),activityController.deleteActivity)
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]), activityController.deleteActivity)
 
 
 router.patch("/:id/status", requireAuth, activityController.updateActivityStatus)

@@ -10,65 +10,65 @@ const { requireAuth, requireRole } = require("../middleware/auth.middleware")
 // Ensure upload directory exists
 const uploadDir = "uploads/resources"
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true })
+    fs.mkdirSync(uploadDir, { recursive: true })
 }
 
 // Configure multer for resource file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir)
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
-    cb(null, "resource-" + uniqueSuffix + path.extname(file.originalname))
-  },
+    destination: (req, file, cb) => {
+        cb(null, uploadDir)
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9)
+        cb(null, "resource-" + uniqueSuffix + path.extname(file.originalname))
+    },
 })
 
 const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|jpeg|jpg|png|gif|webp|mp4|mp3|zip|rar/
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase())
+    storage,
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|jpeg|jpg|png|gif|webp|mp4|mp3|zip|rar/
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase())
 
-    if (extname) {
-      return cb(null, true)
-    } else {
-      cb(new Error("File type not allowed"))
-    }
-  },
+        if (extname) {
+            return cb(null, true)
+        } else {
+            cb(new Error("File type not allowed"))
+        }
+    },
 })
 
 // Validation rules
 const createResourceValidation = [
-  body("title").trim().isLength({ min: 3, max: 200 }).withMessage("Title must be between 3 and 200 characters"),
-  body("description")
+    body("title").trim().isLength({ min: 3, max: 200 }).withMessage("Title must be between 3 and 200 characters"),
+    body("description")
     .optional()
     .trim()
     .isLength({ max: 1000 })
     .withMessage("Description must be less than 1000 characters"),
-  body("categoryId").optional().isUUID().withMessage("Please provide a valid category ID"),
-  body("tags").optional().isArray().withMessage("Tags must be an array"),
+    body("categoryId").optional().isUUID().withMessage("Please provide a valid category ID"),
+    body("tags").optional().isArray().withMessage("Tags must be an array"),
 ]
 
 const updateResourceValidation = [
-  body("title")
+    body("title")
     .optional()
     .trim()
     .isLength({ min: 3, max: 200 })
     .withMessage("Title must be between 3 and 200 characters"),
-  body("description")
+    body("description")
     .optional()
     .trim()
     .isLength({ max: 1000 })
     .withMessage("Description must be less than 1000 characters"),
-  body("categoryId").optional().isUUID().withMessage("Please provide a valid category ID"),
-  body("tags").optional().isArray().withMessage("Tags must be an array"),
+    body("categoryId").optional().isUUID().withMessage("Please provide a valid category ID"),
+    body("tags").optional().isArray().withMessage("Tags must be an array"),
 ]
 
 const categoryValidation = [
-  body("name").trim().isLength({ min: 2, max: 100 }).withMessage("Category name must be between 2 and 100 characters"),
-  body("description")
+    body("name").trim().isLength({ min: 2, max: 100 }).withMessage("Category name must be between 2 and 100 characters"),
+    body("description")
     .optional()
     .trim()
     .isLength({ max: 500 })
@@ -170,10 +170,14 @@ router.get("/:id/download", resourceController.downloadResource);
  *         description: Resource created
  */
 router.post("/",
-  requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
-  upload.single("file"),
-  resourceController.createResource);
+    requireAuth,
+    requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
+    upload.fields([
+        { name: "file", maxCount: 1 },
+        { name: "couverture", maxCount: 1 }
+    ]),
+
+    resourceController.createResource);
 
 /**
  * @swagger
@@ -215,10 +219,13 @@ router.post("/",
  *         description: Resource updated
  */
 router.put("/:id",
-  requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
-  upload.single("file"),
-  resourceController.updateResource);
+    requireAuth,
+    requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
+    upload.fields([
+        { name: "file", maxCount: 1 },
+        { name: "couverture", maxCount: 1 }
+    ]),
+    resourceController.updateResource);
 
 /**
  * @swagger

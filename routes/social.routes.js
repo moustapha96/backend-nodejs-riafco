@@ -81,7 +81,7 @@ router.get("/", socialController.getAllSocialNetworks);
  *       201:
  *         description: Social network created
  */
-router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), createSocialValidation, socialController.createSocialNetwork);
+router.post("/", requireAuth, requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]), createSocialValidation, socialController.createSocialNetwork);
 
 /**
  * @swagger
@@ -120,7 +120,7 @@ router.post("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), createSocialV
  *       200:
  *         description: Social network updated
  */
-router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), updateSocialValidation, socialController.updateSocialNetwork);
+router.put("/:id", requireAuth, requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]), updateSocialValidation, socialController.updateSocialNetwork);
 
 /**
  * @swagger

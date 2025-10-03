@@ -5,7 +5,7 @@ const createUserValidation = [
   body("email").isEmail().normalizeEmail().withMessage("Veuillez fournir un email valide"),
   body("firstName").trim().isLength({ min: 2, max: 50 }).withMessage("Le prénom doit contenir entre 2 et 50 caractères"),
   body("lastName").trim().isLength({ min: 2, max: 50 }).withMessage("Le nom doit contenir entre 2 et 50 caractères"),
-  body("role").optional().isIn(["ADMIN", "MODERATOR", "MEMBER"]).withMessage("Rôle invalide"),
+  body("role").optional().isIn(["ADMIN", "GUEST", "MEMBER"]).withMessage("Rôle invalide"),
   body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Statut invalide"),
   body("phone").optional().isMobilePhone().withMessage("Numéro de téléphone invalide"),
   body("permissions").optional().isArray().withMessage("Les permissions doivent être un tableau"),
@@ -26,7 +26,7 @@ const createUserValidation = [
 const updateUserValidation = [
   body("firstName").optional().trim().isLength({ min: 2, max: 50 }).withMessage("Le prénom doit contenir entre 2 et 50 caractères"),
   body("lastName").optional().trim().isLength({ min: 2, max: 50 }).withMessage("Le nom doit contenir entre 2 et 50 caractères"),
-  body("role").optional().isIn(["ADMIN", "MODERATOR", "MEMBER"]).withMessage("Rôle invalide"),
+  body("role").optional().isIn(["ADMIN", "GUEST", "MEMBER"]).withMessage("Rôle invalide"),
   body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Statut invalide"),
   body("phone").optional().isMobilePhone().withMessage("Numéro de téléphone invalide"),
   body("permissions").optional().isArray().withMessage("Les permissions doivent être un tableau"),

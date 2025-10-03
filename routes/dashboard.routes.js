@@ -59,7 +59,7 @@ router.get("/stats", requireAuth,
 router.get(
   "/recent-activities",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   dashboardController.getRecentActivities,
 )
 

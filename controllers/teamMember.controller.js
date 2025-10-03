@@ -60,7 +60,7 @@ module.exports.getTeamMemberById = async (req, res) => {
 /**
  * @desc Create a new team member
  * @route POST /api/team-members
- * @access Private (ADMIN, MODERATOR)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 module.exports.createTeamMember = async (req, res) => {
   try {
@@ -114,7 +114,7 @@ module.exports.createTeamMember = async (req, res) => {
 /**
  * @desc Update a team member
  * @route PUT /api/team-members/:id
- * @access Private (ADMIN, MODERATOR)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 module.exports.updateTeamMember = async (req, res) => {
   try {
@@ -235,7 +235,7 @@ module.exports.deleteTeamMember = async (req, res) => {
 /**
  * @desc Reorder team members
  * @route PUT /api/team-members/reorder
- * @access Private (ADMIN, MODERATOR)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 module.exports.reorderTeamMembers = async (req, res) => {
   try {

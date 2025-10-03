@@ -22,6 +22,8 @@ module.exports.getAllUsers = async (req, res) => {
 
     // Build where clause for filtering
     const where = {};
+    where.archived = false;
+    
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: "insensitive" } },
@@ -158,7 +160,7 @@ module.exports.createUser = async (req, res) => {
       lastName,
       email,
       phone,
-      role = "MODERATOR",
+      role = "MEMBER",
       status = "INACTIVE",
       sendInvitation = true,
       permissions: permissionNames
@@ -268,7 +270,7 @@ module.exports.updateUser = async (req, res) => {
     }
 
     const { id } = req.params;
-    const {email ,  firstName, lastName, phone, role, status, permissions = [] } = req.body;
+    const { email, firstName, lastName, phone, role, status, permissions = [] } = req.body;
 
     // 1. Vérifier si l'utilisateur existe
     const existingUser = await prisma.user.findUnique({
@@ -283,7 +285,7 @@ module.exports.updateUser = async (req, res) => {
       });
     }
 
-     if (email && email.toLowerCase() !== existingUser.email) {
+    if (email && email.toLowerCase() !== existingUser.email) {
       const emailUsed = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
       });
@@ -293,9 +295,9 @@ module.exports.updateUser = async (req, res) => {
           code: "EMAIL_EXISTS",
         });
       }
-     }
-    
-    
+    }
+
+
     // 2. Empêcher la modification de son propre rôle pour les non-admins
     if (id === res.locals.user.id && role && role !== existingUser.role && res.locals.user.role !== "ADMIN") {
       return res.status(403).json({
@@ -318,8 +320,6 @@ module.exports.updateUser = async (req, res) => {
       })
     );
 
-   
-
     // 4. Préparer les données de mise à jour
     const updateData = {
       firstName: firstName?.trim(),
@@ -334,7 +334,7 @@ module.exports.updateUser = async (req, res) => {
     if (email) {
       updateData.email = email.toLowerCase().trim();
     }
-    
+
     // Ajouter les nouvelles permissions seulement si le tableau n'est pas vide
     if (permissionRecords.length > 0) {
       updateData.permissions.connect = permissionRecords.map(permission => ({
@@ -432,19 +432,10 @@ module.exports.updateUser = async (req, res) => {
 module.exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { archive = false } = req.body;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id },
-      select: {
-        email: true,
-        organization: {
-          select: {
-            name: true,
-          },
-        },
-      },
     });
 
     if (!existingUser) {
@@ -462,11 +453,11 @@ module.exports.deleteUser = async (req, res) => {
       });
     }
 
-    if (archive) {
+    if (existingUser) {
       // Archive user instead of deleting
       await prisma.user.update({
         where: { id },
-        data: { status: "INACTIVE" },
+        data: { status: "INACTIVE" , blocked: true , archived : true },
       });
 
       await createAuditLog({
@@ -476,8 +467,7 @@ module.exports.deleteUser = async (req, res) => {
         resourceId: id,
         details: {
           archivedUser: existingUser.email,
-          archivedBy: res.locals.user.email,
-          organization: existingUser.organization?.name,
+          archivedBy: res.locals.user.email
         },
         ipAddress: req.ip,
         userAgent: req.get("User-Agent"),
@@ -487,27 +477,9 @@ module.exports.deleteUser = async (req, res) => {
         message: "User archived successfully",
       });
     } else {
-      // Permanently delete user
-      await prisma.user.delete({
-        where: { id },
-      });
-
-      await createAuditLog({
-        userId: res.locals.user.id,
-        action: "USER_DELETED",
-        resource: "users",
-        resourceId: id,
-        details: {
-          deletedUser: existingUser.email,
-          deletedBy: res.locals.user.email,
-          organization: existingUser.organization?.name,
-        },
-        ipAddress: req.ip,
-        userAgent: req.get("User-Agent"),
-      });
-
-      res.status(200).json({
-        message: "User deleted successfully",
+      return res.status(404).json({
+        message: "User not found",
+        code: "USER_NOT_FOUND",
       });
     }
   } catch (error) {

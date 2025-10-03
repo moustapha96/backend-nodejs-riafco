@@ -77,7 +77,7 @@ const updateContactValidation = [
  *         description: Forbidden
  */
 
-router.get("/", requireAuth, requireRole(["ADMIN", "MODERATOR"]), contactController.getAllContacts)
+router.get("/", requireAuth, requireRole(["ADMIN",  "SUPER_ADMIN", "MEMBER"]), contactController.getAllContacts)
 
 /**
  * @swagger
@@ -159,7 +159,7 @@ router.post("/", createContactValidation, contactController.createContact)
 router.put(
   "/:id",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   updateContactValidation,
   contactController.updateContact,
 )
@@ -189,7 +189,7 @@ router.put(
  *       404:
  *         description: Contact not found
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN"]), contactController.deleteContact)
+router.delete("/:id", requireAuth, requireRole(["ADMIN","SUPER_ADMIN"]), contactController.deleteContact)
 
 
 // update status
@@ -197,14 +197,14 @@ router.delete("/:id", requireAuth, requireRole(["ADMIN"]), contactController.del
 router.patch(
   "/:id/status",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   contactController.updateContactStatus,
 )
 
 router.put(
   "/:id/respond",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR", "MEMBER"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   contactController.respondContact,
 )
 

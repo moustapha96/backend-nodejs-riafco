@@ -154,7 +154,7 @@ router.get("/:id", partnerController.getPartner);
  */
 router.post("/",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   upload.single("logo"),
   partnerController.createPartner);
 
@@ -203,7 +203,7 @@ router.post("/",
  */
 router.put("/:id",
   requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   upload.single("logo"),
   partnerController.updatePartner);
 

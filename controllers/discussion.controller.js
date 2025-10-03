@@ -784,7 +784,7 @@ const getDiscussionWithComments = async (req, res) => {
 /**
  * @desc Create a discussion
  * @route POST /api/discussions
- * @access Private (ADMIN, MODERATOR, MEMBER)
+ * @access Private (ADMIN, GUEST, MEMBER)
  */
 const createDiscussion = async (req, res) => {
   try {
@@ -812,7 +812,7 @@ const createDiscussion = async (req, res) => {
     }
 
     // Check if user can pin discussions
-    const canPin = res.locals.user.role === "ADMIN" || res.locals.user.role === "MODERATOR"
+    const canPin = res.locals.user.role === "ADMIN" || res.locals.user.role === "MEMBER" || res.locals.user.role === "GUEST"
 
     const discussion = await prisma.discussion.create({
       data: {
@@ -878,7 +878,7 @@ const createDiscussion = async (req, res) => {
 /**
  * @desc Update a discussion
  * @route PUT /api/discussions/:id
- * @access Private (Owner, ADMIN, MODERATOR)
+ * @access Private (Owner, ADMIN, GUEST)
  */
 const updateDiscussion = async (req, res) => {
   try {
@@ -909,7 +909,9 @@ const updateDiscussion = async (req, res) => {
     const canEdit =
       discussion.createdById === res.locals.user.id ||
       res.locals.user.role === "ADMIN" ||
-      res.locals.user.role === "MODERATOR"
+      res.locals.user.role === "GUEST" ||
+      res.locals.user.role === "MEMBER" ||
+      res.locals.user.role === "SUPER_ADMIN"
 
     if (!canEdit) {
       return res.status(403).json({
@@ -919,7 +921,8 @@ const updateDiscussion = async (req, res) => {
     }
 
     // Only admins/moderators can pin or lock discussions
-    const canModerate = res.locals.user.role === "ADMIN" || res.locals.user.role === "MODERATOR"
+    const canModerate = res.locals.user.role === "ADMIN" ||
+          res.locals.user.role === "GUEST" || res.locals.user.role === "MEMBER"
 
     const updateData = {}
     if (title) {
@@ -980,7 +983,7 @@ const updateDiscussion = async (req, res) => {
 /**
  * @desc Delete a discussion
  * @route DELETE /api/discussions/:id
- * @access Private (Owner, ADMIN, MODERATOR)
+ * @access Private (Owner, ADMIN, GUEST , MEMBER)
  */
 const deleteDiscussion = async (req, res) => {
   try {
@@ -1006,7 +1009,9 @@ const deleteDiscussion = async (req, res) => {
     const canDelete =
       discussion.createdById === res.locals.user.id ||
       res.locals.user.role === "ADMIN" ||
-      res.locals.user.role === "MODERATOR"
+      res.locals.user.role === "MEMBER" ||
+      res.locals.user.role === "GUEST" || 
+      res.locals.user.role === "SUPER_ADMIN"
 
     if (!canDelete) {
       return res.status(403).json({
@@ -1073,7 +1078,7 @@ const toggleLikeDiscussion = async (req, res) => {
 /**
  * @desc Create a comment
  * @route POST /api/discussions/:discussionId/comments
- * @access Private (ADMIN, MODERATOR, MEMBER)
+ * @access Private (ADMIN, GUEST ,  MEMBER)
  */
 const createComment = async (req, res) => {
   try {
@@ -1317,7 +1322,7 @@ const getDiscussionComments = async (req, res) => {
 /**
  * @desc Pin/Unpin a discussion
  * @route POST /api/discussions/:id/pin
- * @access Private (ADMIN, MODERATOR)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 const togglePinDiscussion = async (req, res) => {
   try {
@@ -1375,7 +1380,7 @@ const togglePinDiscussion = async (req, res) => {
 /**
  * @desc Close/Open a discussion
  * @route POST /api/discussions/:id/close
- * @access Private (ADMIN, MODERATOR)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 const toggleCloseDiscussion = async (req, res) => {
   try {
@@ -1434,7 +1439,7 @@ const toggleCloseDiscussion = async (req, res) => {
 /**
  * @desc Reply to a comment
  * @route POST /api/discussions/:discussionId/comments/:commentId/reply
- * @access Private (ADMIN, MODERATOR, MEMBER)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 const replyToComment = async (req, res) => {
   try {
@@ -1531,7 +1536,7 @@ const replyToComment = async (req, res) => {
 /**
  * @desc Like/Unlike a comment
  * @route POST /api/discussions/:discussionId/comments/:commentId/like
- * @access Private (ADMIN, MODERATOR, MEMBER)
+ * @access Private (ADMIN, GUEST , MEMBER)
  */
 const likeComment = async (req, res) => {
   try {

@@ -7,14 +7,97 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// Validation rules for MemberCountry
+
 const createMemberCountryValidation = [
-  body("name").trim().isLength({ min: 2, max: 100 }).withMessage("Name must be between 2 and 100 characters"),
-  body("code").trim().isLength({ min: 2, max: 3 }).withMessage("Code must be between 2 and 3 characters"),
-  body("status").optional().isIn(["ACTIVE", "INACTIVE"]).withMessage("Invalid status"),
-  body("latitude").optional().isFloat({ min: -90, max: 90 }).withMessage("Latitude must be between -90 and 90"),
-  body("longitude").optional().isFloat({ min: -180, max: 180 }).withMessage("Longitude must be between -180 and 180"),
+  // Noms multilingues (obligatoires)
+  body("name_fr")
+    .trim()
+    .notEmpty().withMessage("Le nom en français est requis")
+    .isLength({ min: 2, max: 200 }).withMessage("Le nom doit contenir entre 2 et 100 caractères"),
+
+  body("name_en")
+    .trim()
+    .notEmpty().withMessage("Le nom en anglais est requis")
+    .isLength({ min: 2, max: 200 }).withMessage("Le nom doit contenir entre 2 et 100 caractères"),
+
+  // Noms officiels multilingues (obligatoires)
+  body("pays_fr")
+    .trim()
+    .notEmpty().withMessage("Le nom officiel en français est requis")
+    .isLength({ min: 2, max: 200 }).withMessage("Le nom officiel doit contenir entre 2 et 200 caractères"),
+
+  body("pays_en")
+    .trim()
+    .notEmpty().withMessage("Le nom officiel en anglais est requis")
+    .isLength({ min: 2, max: 200 }).withMessage("Le nom officiel doit contenir entre 2 et 200 caractères"),
+
+  // Coordonnées (optionnel mais validé si présent)
+  body("coordonnees")
+    .optional()
+    .trim()
+    .isLength({ max: 100 }).withMessage("Les coordonnées doivent contenir moins de 100 caractères"),
+
+  // Statut (optionnel mais validé si présent)
+  body("status")
+    .optional()
+    .isIn(["ACTIVE", "INACTIVE"])
+    .withMessage("Statut invalide (doit être ACTIVE ou INACTIVE)"),
+
+  // Descriptions (optionnelles mais validées si présentes)
+  body("description_fr")
+    .optional()
+    .trim()
+    .isLength({ min: 5 }).withMessage("La description en français doit contenir moins de 2000 caractères"),
+
+  body("description_en")
+    .optional()
+    .trim()
+    .isLength({ min: 5 }).withMessage("La description en anglais doit contenir moins de 2000 caractères"),
 ];
+
+// Validation rules for updating MemberCountry (same as create, but all fields are optional)
+const updateMemberCountryValidation = [
+  body("name_fr")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 }).withMessage("Le nom en français doit contenir entre 2 et 100 caractères"),
+
+  body("name_en")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 }).withMessage("Le nom en anglais doit contenir entre 2 et 100 caractères"),
+
+  body("pays_fr")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 200 }).withMessage("Le nom officiel en français doit contenir entre 2 et 200 caractères"),
+
+  body("pays_en")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 200 }).withMessage("Le nom officiel en anglais doit contenir entre 2 et 200 caractères"),
+
+  body("coordonnees")
+    .optional()
+    .trim()
+    .isLength({ max: 100 }).withMessage("Les coordonnées doivent contenir moins de 100 caractères"),
+
+  body("status")
+    .optional()
+    .isIn(["ACTIVE", "INACTIVE"])
+    .withMessage("Statut invalide (doit être ACTIVE ou INACTIVE)"),
+
+  body("description_fr")
+    .optional()
+    .trim()
+    .isLength({ max: 2000 }).withMessage("La description en français doit contenir moins de 2000 caractères"),
+
+  body("description_en")
+    .optional()
+    .trim()
+    .isLength({ max: 2000 }).withMessage("La description en anglais doit contenir moins de 2000 caractères"),
+];
+
 
 // Validation rules for CritereMemberCountry
 const createCriterionValidation = [
@@ -377,7 +460,8 @@ router.put(
  *       404:
  *         description: Member country not found
  */
-router.delete("/:id", requireAuth, requireRole(["ADMIN"]), memberCountryController.deleteMemberCountry);
+router.delete("/:id", requireAuth, requireRole(["ADMIN"]),
+  memberCountryController.deleteMemberCountry);
 
 /**
  * @swagger
@@ -544,6 +628,7 @@ router.put(
  *       500:
  *         description: Failed to delete criterion
  */
-router.delete("/criteria/:criterionId", requireAuth,requireRole(["ADMIN"]),  memberCountryController.deleteCriterion);
+router.delete("/criteria/:criterionId", requireAuth, requireRole(["ADMIN"]),
+  memberCountryController.deleteCriterion);
 
 module.exports = router;

@@ -56,12 +56,12 @@ router.get("/slug/:slug", themeController.getThemeBySlug)
 
 // POST /api/themes - Create new theme
 router.post("/", requireAuth,
-  requireRole(["ADMIN", "MODERATOR"]),
+  requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]),
   themeValidationRules,
   themeController.createTheme)
 
 // PUT /api/themes/:id - Update theme
-router.put("/:id", requireAuth, requireRole(["ADMIN", "MODERATOR"]), themeValidationRules, themeController.updateTheme)
+router.put("/:id", requireAuth, requireRole(["ADMIN", "SUPER_ADMIN", "MEMBER"]), themeValidationRules, themeController.updateTheme)
 
 // DELETE /api/themes/:id - Delete theme
 router.delete("/:id", requireAuth, requireRole(["ADMIN"]), themeController.deleteTheme)

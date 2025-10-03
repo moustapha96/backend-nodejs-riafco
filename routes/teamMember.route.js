@@ -130,7 +130,7 @@ const upload = multer({
  *                   items:
  *                     $ref: '#/components/schemas/TeamMember'
  */
-router.get("/", requireAuth, teamMemberController.getAllTeamMembers);
+router.get("/",  teamMemberController.getAllTeamMembers);
 
 
 /**

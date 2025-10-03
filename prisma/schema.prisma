@@ -36,8 +36,9 @@ model User {
   profilePic       String?
   role             Role      @default(MEMBER)
   status           Status    @default(ACTIVE)
-  blocked          Boolean?   @default(false)
+  blocked          Boolean?  @default(false)
   resetToken       String?
+  archived          Boolean?  @default(false)
 
   registerToken    String?  @unique
   registerTokenExpiry DateTime?
@@ -221,16 +222,18 @@ model Activity {
   id          String        @id @default(cuid())
   title_fr          String?
   title_en          String?
-  description_fr String?
-  description_en String?
-  icon        String?
-  image       String?
+  description_fr    String?
+  description_en    String?
+  icon              String?
+  image             String?
+  dateActivity      String?
   status      PublishStatus @default(DRAFT)
   authorId    String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   author      User          @relation(fields: [authorId], references: [id])
 
+  galleries     String[]      @default([])  // Ajout du champ pour les URLs des images
   @@map("activities")
 }
 
@@ -258,23 +261,31 @@ model Event {
 }
 
 model News {
-  id          String        @id @default(cuid())
+  id              String        @id @default(cuid())
   title_fr       String?
   title_en       String?
-  content_fr   String?
-  content_en  String?
-  image       String?
-  status      PublishStatus @default(DRAFT)
-  publishedAt DateTime?
-  authorId    String
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  content_fr    String?
+  content_en    String?
+  image         String?
+  status        PublishStatus @default(DRAFT)
+  validated    ValidationStatus @default(PENDING)
+  publishedAt   DateTime?
+  authorId      String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   author User @relation(fields: [authorId], references: [id])
   campaigns NewsletterCampaign[]
+
+  galleries     String[]      @default([])  // Ajout du champ pour les URLs des images
   @@map("news")
 }
 
+enum ValidationStatus {
+  VALIDATED
+  DECLINED
+  PENDING
+}
 
 model NewsletterSubscriber {
   id        String             @id @default(cuid())
@@ -319,6 +330,8 @@ model Resource {
   fileSize    Int?
   categoryId  String?
   url         String?
+  lien        String?
+  couverture  String?
   tags        String[]
   authorId    String
   isPublic    Boolean  @default(true)
@@ -360,13 +373,15 @@ model HistoryItem {
 }
 
 model MemberCountry {
-  id        String                 @id @default(cuid())
-  name      String                 @unique
-  code      String                 @unique
-  flag      String?
-  latitude  Float?
-  longitude Float?
-  description String?                                // Texte descriptif
+  id            String                 @id @default(cuid())
+  name_fr       String?                 
+  name_en       String?                 
+  flag          String?
+  pays_fr          String?
+  pays_en          String?
+  description_fr String?                                // Texte descriptif
+  description_en String?                                // Texte descriptif
+  coordonnees    String?                                // Texte descriptif
   status    Status                 @default(ACTIVE)
   createdAt DateTime               @default(now())
   updatedAt DateTime               @updatedAt
@@ -405,6 +420,23 @@ model SiteSettings {
 
   @@map("site_settings")
 }
+
+
+model PageSettings {
+  id              String   @id @default(cuid())
+  slug            String   @unique          // ex: "members", "home", "about"
+  title_fr        String
+  title_en        String
+  description_fr  String?  @db.Text
+  description_en  String?  @db.Text
+  image           String?  // chemin ou URL
+  status          String   @default("ACTIVE") // optionnel
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("page_settings")
+}
+
 
 model AuditLog {
   id         String   @id @default(cuid())
@@ -520,9 +552,9 @@ enum Sector {
 
 enum Role {
   ADMIN
-  MODERATOR
   MEMBER
   GUEST
+  SUPER_ADMIN
 }
 
 enum InvitationStatus {
