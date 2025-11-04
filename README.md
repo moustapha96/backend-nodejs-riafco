@@ -172,40 +172,12 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 ## 📞 Support
 
 Pour toute question ou support, contactez l'équipe RIAFCO à contact@riafco.org
-
-
-
-
-    // Envoyer des notifications aux participants si demandé
-    // if (notifyParticipants && existingEvent.registrations.length > 0) {
-    //   try {
-    //     const emailPromises = existingEvent.registrations.map((registration) =>
-    //       emailService.sendEmail({
-    //         to: registration.email,
-    //         subject: `Event Update: ${updatedEvent.title}`,
-    //         html: `
-    //           <h2>Event Update</h2>
-    //           <p>Hello ${registration.name},</p>
-    //           <p>The event "${updatedEvent.title}" has been updated.</p>
-    //           <p>Please check the latest details and mark your calendar accordingly.</p>
-    //           <p>Best regards,<br>The RIAFCO Team</p>
-    //         `,
-    //         text: `Event Update: ${updatedEvent.title} has been updated. Please check the latest details.`,
-    //       }),
-    //     );
-    //     await Promise.allSettled(emailPromises);
-    //   } catch (emailError) {
-    //     console.error("Failed to send event update notifications:", emailError);
-    //   }
-    // }
-
-
     
 Poussez la base de données
 
-npx prisma db push
-npx prisma db push --force-reset
-npx prisma generate       
+1. npx prisma db push
+2. npx prisma db push --force-reset
+3. npx prisma generate       
 
 
 
