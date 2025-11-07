@@ -1,193 +1,194 @@
+// prisma/seed.js
+/* eslint-disable no-console */
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const { faker } = require("@faker-js/faker");
 const prisma = new PrismaClient();
 
-async function main() {
-    console.log("🌱 Starting seed...");
+async function wipeAll() {
+    console.log("🧹 Wiping DB in FK-safe order...");
 
-    // Clean existing data
+    // 1) Child-most tables first
+    await prisma.commentLike.deleteMany();
     await prisma.comment.deleteMany();
     await prisma.discussion.deleteMany();
     await prisma.theme.deleteMany();
+
     await prisma.invitation.deleteMany();
     await prisma.auditLog.deleteMany();
+
+    await prisma.newsletterCampaign.deleteMany();
+    await prisma.newsletterSubscriber.deleteMany();
+
     await prisma.resource.deleteMany();
     await prisma.resourceCategory.deleteMany();
+
     await prisma.news.deleteMany();
     await prisma.event.deleteMany();
     await prisma.activity.deleteMany();
+
     await prisma.critereMemberCountry.deleteMany();
     await prisma.memberCountry.deleteMany();
+
     await prisma.partner.deleteMany();
     await prisma.historyItem.deleteMany();
-    await prisma.newsletterSubscriber.deleteMany();
-    await prisma.newsletterCampaign.deleteMany();
     await prisma.contact.deleteMany();
-    await prisma.socialNetwork.deleteMany();
+
     await prisma.socialFeed.deleteMany();
+    await prisma.socialNetwork.deleteMany();
+
     await prisma.legalMention.deleteMany();
     await prisma.teamMember.deleteMany();
     await prisma.governanceReport.deleteMany();
+
     await prisma.siteSettings.deleteMany();
+
     await prisma.user.deleteMany();
     await prisma.permission.deleteMany();
 
-    // Create permissions
-    const permissions = await Promise.all([
-        prisma.permission.create({
-            data: {
-                name: "GERER_ACTIVITES",
-                description: "Gérer les activités",
+    // Optionnels (si tu utilises ces modèles plus tard)
+    // await prisma.pageSettings.deleteMany();
+    // await prisma.aboutUs.deleteMany();
+
+    console.log("🧹 Done.");
+}
+
+async function main() {
+    console.log("🌱 Starting seed...");
+
+    await wipeAll();
+
+    // ------------------------------------------------------------------
+    // Permissions
+    // ------------------------------------------------------------------
+    const PERM_LIST = [
+        { name: "GERER_ACTIVITES", description: "Gérer les activités" },
+        { name: "GERER_RESSOURCES", description: "Gérer les ressources" },
+        { name: "GERER_UTILISATEURS", description: "Gérer les utilisateurs" },
+        { name: "GERER_BUREAUX", description: "Gérer les bureaux" },
+        { name: "GERER_ACTUALITES", description: "Gérer les actualités" },
+        { name: "GERER_PARTENARIATS", description: "Gérer les partenariats" },
+        { name: "GERER_EVENEMENTS", description: "Gérer les événements" },
+        { name: "GERER_NEWSLETTERS", description: "Gérer les newsletters" },
+        { name: "GERER_ESPACE_APROPOS", description: "Gérer l'espace à propos" },
+    ];
+
+    const permissions = [];
+    for (const p of PERM_LIST) {
+        const created = await prisma.permission.upsert({
+            where: { name: p.name },
+            update: { description: p.description },
+            create: p,
+            select: { id: true, name: true },
+        });
+        permissions.push(created);
+    }
+
+    // ------------------------------------------------------------------
+    // Users
+    // ------------------------------------------------------------------
+    console.log("\n👥 Creating users...");
+
+    const hash = (pwd) => bcrypt.hash(pwd, 12);
+
+    const [adminUser, moderatorUser, memberUser] = await Promise.all([
+        prisma.user.upsert({
+            where: { email: "admin@riafco.org" },
+            update: {},
+            create: {
+                email: "admin@riafco.org",
+                password: await hash("Admin@2025"),
+                firstName: "Admin",
+                lastName: "RIAFCO",
+                role: "ADMIN",
+                status: "ACTIVE",
+                phone: "+221781234567",
+                permissions: { connect: permissions.map((p) => ({ id: p.id })) },
             },
         }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_RESSOURCES",
-                description: "Gérer les ressources",
+        prisma.user.upsert({
+            where: { email: "moderator@riafco.org" },
+            update: {},
+            create: {
+                email: "moderator@riafco.org",
+                password: await hash("Moderator@2025"),
+                firstName: "Modérateur",
+                lastName: "RIAFCO",
+                role: "MEMBER",
+                status: "ACTIVE",
+                phone: "+221771234567",
+                permissions: { connect: permissions.map((p) => ({ id: p.id })) },
             },
         }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_UTILISATEURS",
-                description: "Gérer les utilisateurs",
-            },
-        }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_BUREAUX",
-                description: "Gérer les bureaux",
-            },
-        }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_ACTUALITES",
-                description: "Gérer les actualités",
-            },
-        }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_PARTENARIATS",
-                description: "Gérer les partenariats",
-            },
-        }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_EVENEMENTS",
-                description: "Gérer les événements",
-            },
-        }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_NEWSLETTERS",
-                description: "Gérer les newsletters",
-            },
-        }),
-        prisma.permission.create({
-            data: {
-                name: "GERER_ESPACE_APROPOS",
-                description: "Gérer l'espace à propos",
+        prisma.user.upsert({
+            where: { email: "member@riafco.org" },
+            update: {},
+            create: {
+                email: "member@riafco-oi.org",
+                password: await hash("Member@2025"),
+                firstName: "Membre",
+                lastName: "Test",
+                role: "MEMBER",
+                status: "ACTIVE",
+                phone: "+221761234567",
+                permissions: {
+                    connect: [
+                            "GERER_ACTIVITES",
+                            "GERER_RESSOURCES",
+                            "GERER_ACTUALITES",
+                            "GERER_EVENEMENTS",
+                        ]
+                        .map((n) => permissions.find((x) => x.name === n))
+                        .filter(Boolean)
+                        .map((p) => ({ id: p.id })),
+                },
             },
         }),
     ]);
 
-    console.log("\n👥 Creating users...");
-
-    const adminPassword = await bcrypt.hash("password", 12);
-    const moderatorPassword = await bcrypt.hash("password", 12);
-    const memberPassword = await bcrypt.hash("password", 12);
-
-    const adminUser = await prisma.user.upsert({
-        where: { email: "admin@riafco.org" },
-        update: {},
-        create: {
-            email: "admin@riafco.org",
-            password: adminPassword,
-            firstName: "Admin",
-            lastName: "RIAFCO",
-            role: "ADMIN",
-            status: "ACTIVE",
-            phone: "+33123456789",
-            permissions: {
-                connect: permissions.map((p) => ({ id: p.id })),
-            },
-        },
-    });
-
-    const moderatorUser = await prisma.user.upsert({
-        where: { email: "moderator@riafco.org" },
-        update: {},
-        create: {
-            email: "moderator@riafco.org",
-            password: moderatorPassword,
-            firstName: "Modérateur",
-            lastName: "RIAFCO",
-            role: "MEMBER",
-            status: "ACTIVE",
-            phone: "+33123456789",
-            permissions: {
-                connect: permissions.map((p) => ({ id: p.id })),
-            },
-        },
-    });
-
-    const memberUser = await prisma.user.upsert({
-        where: { email: "member@riafco.org" },
-        update: {},
-        create: {
-            email: "member@riafco.org",
-            password: memberPassword,
-            firstName: "Membre",
-            lastName: "Test",
-            role: "MEMBER",
-            status: "ACTIVE",
-            phone: "+33123456789",
-            permissions: {
-                connect: [permissions[0], permissions[1], permissions[4], permissions[6]].map((p) => ({ id: p.id })),
-            },
-        },
-    });
-
-    // Création de 5 membres supplémentaires
+    // 5 membres supplémentaires
     for (let i = 1; i <= 5; i++) {
         await prisma.user.create({
             data: {
                 email: `member${i}@riafco.org`,
-                password: await bcrypt.hash(`Member${i}123!`, 12),
+                password: await hash(`Member${i}#2025!`),
                 firstName: faker.person.firstName(),
                 lastName: faker.person.lastName(),
                 role: "MEMBER",
                 status: "ACTIVE",
                 permissions: {
-                    connect: [permissions[0], permissions[1], permissions[4], permissions[6]].map((p) => ({ id: p.id })),
+                    connect: [
+                            "GERER_ACTIVITES",
+                            "GERER_RESSOURCES",
+                            "GERER_ACTUALITES",
+                            "GERER_EVENEMENTS",
+                        ]
+                        .map((n) => permissions.find((x) => x.name === n))
+                        .filter(Boolean)
+                        .map((p) => ({ id: p.id })),
                 },
             },
         });
     }
 
-    // Create resource categories
+    // ------------------------------------------------------------------
+    // Resource categories
+    // ------------------------------------------------------------------
     const resourceCategories = await Promise.all([
         prisma.resourceCategory.create({
-            data: {
-                name: "Documents juridiques",
-                description: "Documents et textes juridiques",
-            },
+            data: { name: "Documents juridiques", description: "Textes et documents juridiques" },
         }),
         prisma.resourceCategory.create({
-            data: {
-                name: "Formations",
-                description: "Matériel de formation et supports pédagogiques",
-            },
+            data: { name: "Formations", description: "Supports et contenus de formation" },
         }),
         prisma.resourceCategory.create({
-            data: {
-                name: "Rapports",
-                description: "Rapports d'activité et études",
-            },
+            data: { name: "Rapports", description: "Rapports d’activité et études" },
         }),
     ]);
 
-    // Create activities
+    // ------------------------------------------------------------------
+    // Activities
+    // ------------------------------------------------------------------
     const activities = await Promise.all([
         prisma.activity.create({
             data: {
@@ -218,19 +219,21 @@ async function main() {
         }),
     ]);
 
-    // Create events
+    // ------------------------------------------------------------------
+    // Events
+    // ------------------------------------------------------------------
     const events = await Promise.all([
         prisma.event.create({
             data: {
-                title: "Assemblée Générale RIAFCO 2024",
+                title: "Assemblée Générale RIAFCO 2025",
                 description: "Assemblée générale annuelle de la RIAFCO avec présentation des activités et élections",
-                startDate: new Date("2024-06-15T09:00:00Z"),
-                endDate: new Date("2024-06-15T17:00:00Z"),
-                location: "Paris, France",
+                startDate: new Date("2025-12-15T09:00:00Z"),
+                endDate: new Date("2025-12-15T17:00:00Z"),
+                location: "Dakar, Sénégal",
                 maxAttendees: 200,
                 isVirtual: false,
                 status: "PUBLISHED",
-                registrationLink: "https://riafco.org/register/ag2024",
+                registrationLink: "https://riafco-oi.org/register/ag2025",
                 authorId: adminUser.id,
             },
         }),
@@ -238,22 +241,24 @@ async function main() {
             data: {
                 title: "Webinaire: Droit numérique",
                 description: "Webinaire sur les enjeux du droit numérique et de la protection des données",
-                startDate: new Date("2024-07-20T14:00:00Z"),
-                endDate: new Date("2024-07-20T16:00:00Z"),
+                startDate: new Date("2025-12-20T14:00:00Z"),
+                endDate: new Date("2025-12-20T16:00:00Z"),
                 isVirtual: true,
                 status: "PUBLISHED",
-                registrationLink: "https://riafco.org/webinar/droit-numerique",
+                registrationLink: "https://riafco-oi.org/webinar/droit-numerique",
                 authorId: moderatorUser.id,
             },
         }),
     ]);
 
-    // Create news
+    // ------------------------------------------------------------------
+    // News
+    // ------------------------------------------------------------------
     const news = await Promise.all([
         prisma.news.create({
             data: {
-                title_fr: "Nouveau partenariat avec l'Université de Droit",
-                content_fr: "La RIAFCO annonce un nouveau partenariat stratégique avec l'Université de Droit de Paris pour développer des programmes de formation continue...",
+                title_fr: "Nouveau partenariat avec une université",
+                content_fr: "La RIAFCO annonce un nouveau partenariat stratégique pour développer des programmes de formation continue...",
                 status: "PUBLISHED",
                 publishedAt: new Date(),
                 authorId: adminUser.id,
@@ -262,7 +267,7 @@ async function main() {
         prisma.news.create({
             data: {
                 title_fr: "Lancement du programme de mentorat",
-                content_fr: "Nous sommes fiers d'annoncer le lancement de notre nouveau programme de mentorat destiné aux jeunes juristes...",
+                content_fr: "Nous annonçons le lancement de notre nouveau programme de mentorat destiné aux jeunes juristes...",
                 status: "PUBLISHED",
                 publishedAt: new Date(),
                 authorId: moderatorUser.id,
@@ -270,36 +275,41 @@ async function main() {
         }),
     ]);
 
-    // Create newsletter campaign
-    const newsletterCampaign = await prisma.newsletterCampaign.create({
-        data: {
-            newsId: news[0].id,
-            subject: "Newsletter RIAFCO - Mars 2024",
-            content: "Découvrez les dernières actualités de la RIAFCO...",
-            htmlContent: "<h1>Newsletter RIAFCO</h1><p>Découvrez les dernières actualités...</p>",
-            status: "SENT",
-            sentAt: new Date(),
-            recipientCount: 150,
-            openCount: 120,
-            clickCount: 45,
-        },
-    });
+    // ------------------------------------------------------------------
+    // Newsletter Campaigns (référencent News)
+    // ------------------------------------------------------------------
+    const newsletterCampaigns = await Promise.all([
+        prisma.newsletterCampaign.create({
+            data: {
+                newsId: news[0].id,
+                subject: "Newsletter RIAFCO - Décembre 2025",
+                content: "Découvrez les dernières actualités de la RIAFCO...",
+                htmlContent: "<h1>Newsletter RIAFCO</h1><p>Dernières actualités...</p>",
+                status: "SENT",
+                sentAt: new Date(),
+                recipientCount: 150,
+                openCount: 120,
+                clickCount: 45,
+            },
+        }),
+        prisma.newsletterCampaign.create({
+            data: {
+                newsId: news[1].id,
+                subject: "Newsletter RIAFCO - Janvier 2026",
+                content: "Les prochaines activités et événements...",
+                htmlContent: "<h1>Newsletter RIAFCO</h1><p>Prochaines activités...</p>",
+                status: "SENT",
+                sentAt: new Date(),
+                recipientCount: 140,
+                openCount: 100,
+                clickCount: 40,
+            },
+        }),
+    ]);
 
-    const newsletterCampaign2 = await prisma.newsletterCampaign.create({
-        data: {
-            newsId: news[1].id,
-            subject: "Newsletter RIAFCO - Avril 2024",
-            content: "Découvrez les dernières actualités de la RIAFCO...",
-            htmlContent: "<h1>Newsletter RIAFCO</h1><p>Découvrez les dernières actualités...</p>",
-            status: "SENT",
-            sentAt: new Date(),
-            recipientCount: 150,
-            openCount: 120,
-            clickCount: 45,
-        },
-    });
-
-    // Create resources
+    // ------------------------------------------------------------------
+    // Resources (référencent categories & author)
+    // ------------------------------------------------------------------
     const resources = await Promise.all([
         prisma.resource.create({
             data: {
@@ -308,7 +318,7 @@ async function main() {
                 fileName: "guide-droit-contrats.pdf",
                 filePath: "/uploads/resources/guide-droit-contrats.pdf",
                 fileType: "application/pdf",
-                fileSize: 2048000,
+                fileSize: 2,
                 categoryId: resourceCategories[0].id,
                 tags: ["contrats", "droit international", "guide"],
                 authorId: adminUser.id,
@@ -322,7 +332,7 @@ async function main() {
                 fileName: "formation-ethique.pptx",
                 filePath: "/uploads/resources/formation-ethique.pptx",
                 fileType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                fileSize: 5120000,
+                fileSize: 5,
                 categoryId: resourceCategories[1].id,
                 tags: ["éthique", "formation", "présentation"],
                 authorId: moderatorUser.id,
@@ -331,7 +341,9 @@ async function main() {
         }),
     ]);
 
-    // Create member countries with criteria
+    // ------------------------------------------------------------------
+    // Member Countries (+ criteria)
+    // ------------------------------------------------------------------
     const memberCountries = await Promise.all([
         prisma.memberCountry.create({
             data: {
@@ -383,7 +395,9 @@ async function main() {
         }),
     ]);
 
-    // Create partners
+    // ------------------------------------------------------------------
+    // Partners, History, Subscribers, Contacts
+    // ------------------------------------------------------------------
     const partners = await Promise.all([
         prisma.partner.create({
             data: {
@@ -408,48 +422,32 @@ async function main() {
         }),
     ]);
 
-    // Create history items
     const historyItems = await Promise.all([
         prisma.historyItem.create({
             data: {
                 date: new Date("1985-03-15"),
                 title: "Fondation de la RIAFCO",
-                description: "Création officielle du Réseau International des Avocats Francophones et Catholiques",
+                description: "Création officielle du réseau",
             },
         }),
         prisma.historyItem.create({
             data: {
                 date: new Date("1990-06-20"),
                 title: "Premier congrès international",
-                description: "Organisation du premier congrès international à Paris avec 150 participants",
-            },
-        }),
-        prisma.historyItem.create({
-            data: {
-                date: new Date("2000-01-01"),
-                title: "Passage au nouveau millénaire",
-                description: "Adaptation de la RIAFCO aux défis du 21ème siècle",
+                description: "Organisation du premier congrès à Paris",
             },
         }),
     ]);
 
-    // Create newsletter subscribers
     const newsletterSubscribers = await Promise.all([
         prisma.newsletterSubscriber.create({
-            data: {
-                email: "subscriber1@example.com",
-                status: "ACTIVE",
-            },
+            data: { email: "subscriber1@example.com", status: "ACTIVE" },
         }),
         prisma.newsletterSubscriber.create({
-            data: {
-                email: "subscriber2@example.com",
-                status: "ACTIVE",
-            },
+            data: { email: "subscriber2@example.com", status: "ACTIVE" },
         }),
     ]);
 
-    // Create contacts
     const contacts = await Promise.all([
         prisma.contact.create({
             data: {
@@ -471,7 +469,9 @@ async function main() {
         }),
     ]);
 
-    // Create social networks
+    // ------------------------------------------------------------------
+    // Socials & Feeds
+    // ------------------------------------------------------------------
     const socialNetworks = await Promise.all([
         prisma.socialNetwork.create({
             data: {
@@ -502,7 +502,6 @@ async function main() {
         }),
     ]);
 
-    // Create social feeds
     const socialFeeds = await Promise.all([
         prisma.socialFeed.create({
             data: {
@@ -526,7 +525,9 @@ async function main() {
         }),
     ]);
 
-    // Create legal mentions
+    // ------------------------------------------------------------------
+    // Legal mentions
+    // ------------------------------------------------------------------
     const legalMentions = await Promise.all([
         prisma.legalMention.create({
             data: {
@@ -548,13 +549,15 @@ async function main() {
         }),
     ]);
 
-    // Create team members
+    // ------------------------------------------------------------------
+    // Team & Governance reports
+    // ------------------------------------------------------------------
     const teamMembers = await Promise.all([
         prisma.teamMember.create({
             data: {
                 name: "Dr. Jean-Claude Martin",
                 position: "Président",
-                bio: "Avocat spécialisé en droit international avec plus de 25 ans d'expérience",
+                bio: "Avocat spécialisé en droit international avec 25 ans d'expérience",
                 order: 1,
             },
         }),
@@ -566,57 +569,41 @@ async function main() {
                 order: 2,
             },
         }),
-        prisma.teamMember.create({
-            data: {
-                name: "Pierre Lefebvre",
-                position: "Secrétaire Général",
-                bio: "Juriste spécialisé en droit associatif et gouvernance",
-                order: 3,
-            },
-        }),
     ]);
 
-    // Create governance reports
     const governanceReports = await Promise.all([
         prisma.governanceReport.create({
             data: {
-                fileUrl: "/uploads/reports/rapport-activite-2023.pdf",
-                publishedAt: new Date("2024-01-15"),
-                title_fr: "Rapport d'activité 2023",
-                title_en: "Activity Report 2023",
-                paragraphe_fr: "Ce rapport présente les activités de la RIAFCO pour l'année 2023.",
-                paragraphe_en: "This report presents the activities of RIAFCO for the year 2023.",
-                createdById: adminUser.id,
-            },
-        }),
-        prisma.governanceReport.create({
-            data: {
-                fileUrl: "/uploads/reports/rapport-financier-2023.pdf",
-                publishedAt: new Date("2024-02-01"),
-                title_fr: "Rapport financier 2023",
-                title_en: "Financial Report 2023",
-                paragraphe_fr: "Ce rapport présente les résultats financiers de la RIAFCO pour l'année 2023.",
-                paragraphe_en: "This report presents the financial results of RIAFCO for the year 2023.",
+                fileUrl: "/uploads/reports/rapport-activite-2024.pdf",
+                publishedAt: new Date("2025-03-01"),
+                title_fr: "Rapport d'activité 2024",
+                title_en: "Activity Report 2024",
+                paragraphe_fr: "Ce rapport présente les activités de la RIAFCO pour l'année 2024.",
+                paragraphe_en: "This report presents the activities of RIAFCO for 2024.",
                 createdById: adminUser.id,
             },
         }),
     ]);
 
-    // Create site settings
+    // ------------------------------------------------------------------
+    // Site settings
+    // ------------------------------------------------------------------
     const siteSettings = await prisma.siteSettings.create({
         data: {
-            siteName: "RIAFCO - Réseau International des Avocats Francophones et Catholiques",
-            contactEmail: "contact@riafco.org",
+            siteName: "RIAFCO - Réseau des Institutions Africaines de Financement des Collectivités locales",
+            contactEmail: "contact@riafco-oi.org",
             socialMedia: {
                 facebook: "https://facebook.com/riafco",
                 linkedin: "https://linkedin.com/company/riafco",
                 twitter: "https://twitter.com/riafco",
             },
-            footer: "RIAFCO © 2024 - Tous droits réservés",
+            footer: "RIAFCO © 2025 - Tous droits réservés",
         },
     });
 
-    // Create audit logs
+    // ------------------------------------------------------------------
+    // Audit logs (référencent users/resources/news…)
+    // ------------------------------------------------------------------
     const auditLogs = await Promise.all([
         prisma.auditLog.create({
             data: {
@@ -625,8 +612,8 @@ async function main() {
                 resource: "User",
                 resourceId: memberUser.id,
                 details: { message: "Création d'un nouvel utilisateur membre" },
-                ipAddress: "192.168.1.1",
-                userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                ipAddress: "10.0.0.10",
+                userAgent: "seed-script/1.0",
             },
         }),
         prisma.auditLog.create({
@@ -636,26 +623,26 @@ async function main() {
                 resource: "News",
                 resourceId: news[0].id,
                 details: { message: "Modification d'un article d'actualité" },
-                ipAddress: "192.168.1.2",
-                userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                ipAddress: "10.0.0.11",
+                userAgent: "seed-script/1.0",
             },
         }),
     ]);
 
-    console.log("✅ Seed completed successfully!");
+    console.log("\n✅ Seed completed successfully!");
     console.log(`Created:
   - ${permissions.length} permissions
-  - 3 users (1 admin, 1 moderator, 1 member)
+  - users: admin, moderator, member + 5 membres
   - ${resourceCategories.length} resource categories
   - ${activities.length} activities
   - ${events.length} events
-  - ${news.length} news articles
+  - ${news.length} news
   - ${resources.length} resources
   - ${memberCountries.length} member countries
   - ${partners.length} partners
   - ${historyItems.length} history items
   - ${newsletterSubscribers.length} newsletter subscribers
-  - 2 newsletter campaigns
+  - ${newsletterCampaigns.length} newsletter campaigns
   - ${contacts.length} contacts
   - ${socialNetworks.length} social networks
   - ${socialFeeds.length} social feeds
@@ -663,7 +650,8 @@ async function main() {
   - ${teamMembers.length} team members
   - ${governanceReports.length} governance reports
   - 1 site settings
-  - ${auditLogs.length} audit logs`);
+  - ${auditLogs.length} audit logs
+  `);
 }
 
 main()
