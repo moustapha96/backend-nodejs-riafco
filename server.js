@@ -50,9 +50,11 @@ app.use(helmet())
 
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 5000, 
-  message: "Too many requests from this IP, please try again later.",
+    windowMs: 15 * 60 * 1000,
+    max: 5000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: "Too many requests from this IP, please try again later.",
 })
 
 
@@ -61,14 +63,14 @@ app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }))
 app.use(cookieParser())
 
 app.use(
-  cors({
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:3000",
-      "http://localhost:3030",
-    ],
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    credentials: true,
-  }),
+    cors({
+        origin: [
+            "https://riafco-io.org",
+            "https://admin.riafco-io.org",
+        ],
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        credentials: true,
+    }),
 )
 
 
@@ -78,12 +80,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.use(express.static(path.join(__dirname, "uploads")));
 
 
-app.use("/profiles", (req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:3000");
-  next();
-}, express.static(path.join(__dirname, "uploads")));
-
-
+app.use("/profiles", express.static(path.join(__dirname, "uploads")));
 app.use("/about-us", express.static(path.join(__dirname, "uploads")));
 app.use("/activities", express.static(path.join(__dirname, "uploads")));
 app.use("/countries", express.static(path.join(__dirname, "uploads")));
@@ -100,20 +97,20 @@ app.use("/reports", express.static(path.join(__dirname, "uploads")));
 
 
 app.get("/", (req, res) => {
-  res.status(200).json({
-    message: "RIAFCO Backoffice API is running",
-    version: "1.0.0",
-    timestamp: new Date().toISOString(),
-  })
+    res.status(200).json({
+        message: "RIAFCO Backoffice API is running",
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+    })
 })
 app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-  })
+    res.status(200).json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+    })
 })
 app.get("/api/jwtid", requireAuth, (req, res) => {
-  res.status(200).json({ userId: res.locals.user.id })
+    res.status(200).json({ userId: res.locals.user.id })
 })
 
 app.use("/api/auth", authRoutes)
@@ -146,26 +143,26 @@ app.use("/api/campaigns", campaignsRoutes)
 app.use("/api/newsletter", newsletterRoutes)
 
 app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(500).json({
-    message: "Something went wrong!",
-    error: process.env.NODE_ENV === "development" ? err.message : {},
-  })
+    console.error(err.stack)
+    res.status(500).json({
+        message: "Something went wrong!",
+        error: process.env.NODE_ENV === "development" ? err.message : {},
+    })
 })
 
 app.get(checkUser)
 app.use((req, res) => {
-  res.status(404).json({
-    message: "Route not found",
-    path: req.originalUrl,
-  })
+    res.status(404).json({
+        message: "Route not found",
+        path: req.originalUrl,
+    })
 })
 
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
-  console.log(`🚀 RIAFCO Backoffice API listening on port ${PORT}`)
-  console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`)
-  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`)
-  console.log(`🔗 Api doc: http://localhost:${PORT}/api-doc`)
+    console.log(`🚀 RIAFCO Backoffice API listening on port ${PORT}`)
+    console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`)
+    console.log(`🔗 Health check: http://localhost:${PORT}/api/health`)
+    console.log(`🔗 Api doc: http://localhost:${PORT}/api-doc`)
 })
